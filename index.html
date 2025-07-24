@@ -2,137 +2,256 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
-    <title>タスク管理アプリ - iPhone完全対応版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="タスク管理">
+    <title>タスク管理アプリ - iPhone プレビュー特化版</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
     <style>
-        /* iPhone特有の最適化 */
         * {
-            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+            -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
         
-        body {
-            -webkit-text-size-adjust: 100%;
-            -webkit-font-smoothing: antialiased;
-            touch-action: manipulation;
-            overscroll-behavior: contain;
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
         }
         
-        /* タッチターゲット最適化 */
         .touch-target {
-            min-height: 48px;
-            min-width: 48px;
-            padding: 12px;
-            cursor: pointer;
+            min-height: 44px;
+            min-width: 44px;
         }
         
-        /* 大きなボタン */
-        .btn-large {
-            min-height: 56px;
-            font-size: 18px;
-            font-weight: 600;
-            border-radius: 12px;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-large:active {
-            transform: scale(0.98);
-        }
-        
-        /* スクロール改善 */
-        .scroll-container {
-            -webkit-overflow-scrolling: touch;
-            scroll-behavior: smooth;
-        }
-        
-        /* ファイルドロップエリア */
-        .file-drop-area {
-            border: 3px dashed #cbd5e0;
-            border-radius: 12px;
-            min-height: 120px;
-            transition: all 0.3s ease;
-        }
-        
-        .file-drop-area.dragover {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
-        }
-        
-        /* タスクアイテム */
-        .task-item {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 16px;
-            transition: all 0.2s ease;
-        }
-        
-        .task-item:active {
-            transform: scale(0.99);
-        }
-        
-        /* モーダル */
-        .modal {
+        .preview-modal {
             position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 9999;
             display: none;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            overflow: hidden;
         }
         
-        .modal.show {
+        .preview-content {
+            width: 100%;
+            height: 100%;
             display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
         }
         
-        .modal-content {
+        .preview-image {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+        
+        .preview-pdf {
+            width: 95%;
+            height: 95%;
             background: white;
-            border-radius: 16px;
-            max-width: 90vw;
-            max-height: 80vh;
+            border-radius: 8px;
             overflow: auto;
             -webkit-overflow-scrolling: touch;
         }
         
-        /* 入力フィールド */
-        .input-field {
-            font-size: 16px; /* iOS zoom prevention */
-            min-height: 48px;
+        .preview-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .preview-control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .preview-control-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
+        }
+        
+        .file-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
             border-radius: 8px;
-            border: 2px solid #e2e8f0;
+            padding: 12px;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 44px;
+        }
+        
+        .file-item:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 18px;
+            color: white;
+        }
+        
+        .file-pdf { background: #dc3545; }
+        .file-image { background: #28a745; }
+        .file-excel { background: #17a2b8; }
+        .file-word { background: #007bff; }
+        .file-default { background: #6c757d; }
+        
+        .task-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #007bff;
+        }
+        
+        .task-completed .task-card {
+            border-left-color: #28a745;
+            opacity: 0.7;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: white;
+            font-weight: 600;
+            min-height: 48px;
+            touch-action: manipulation;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: white;
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+        
+        .input-field {
+            border: 1px solid #ced4da;
+            border-radius: 8px;
             padding: 12px 16px;
-            transition: border-color 0.2s ease;
+            font-size: 16px;
+            min-height: 48px;
+            transition: all 0.3s ease;
         }
         
         .input-field:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
         
-        /* 通知 */
-        .notification {
+        .calendar-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 4px;
+            min-height: 44px;
+            min-width: 44px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .calendar-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+        
+        .notification-permission {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 16px 0;
+            text-align: center;
+        }
+        
+        .loading {
+            display: none;
             position: fixed;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            z-index: 2000;
-            transform: translateY(-100px);
-            transition: transform 0.3s ease;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
         }
         
-        .notification.show {
-            transform: translateY(0);
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
         
-        /* Safe Area対応 */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .file-drop-zone {
+            border: 2px dashed #ced4da;
+            border-radius: 8px;
+            padding: 32px;
+            text-align: center;
+            margin: 16px 0;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-drop-zone.dragover {
+            border-color: #007bff;
+            background: rgba(0, 123, 255, 0.05);
+        }
+        
         .safe-area-top {
             padding-top: env(safe-area-inset-top);
         }
@@ -141,703 +260,822 @@
             padding-bottom: env(safe-area-inset-bottom);
         }
         
-        /* プレビュー */
-        .file-preview {
-            max-width: 100%;
-            max-height: 60vh;
-            object-fit: contain;
-        }
-        
-        /* ファイル情報 */
-        .file-info {
-            background: #f8fafc;
-            border-radius: 8px;
-            padding: 12px;
-            margin: 8px 0;
-        }
-        
-        /* レスポンシブフォント */
-        @media (max-width: 480px) {
-            .text-responsive {
-                font-size: 16px;
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
             }
-        }
-        
-        /* 振動フィードバック用 */
-        .haptic-feedback:active {
-            animation: haptic 0.1s ease;
-        }
-        
-        @keyframes haptic {
-            0% { transform: scale(1); }
-            50% { transform: scale(0.98); }
-            100% { transform: scale(1); }
+            
+            .task-card {
+                margin: 12px 0;
+                padding: 16px;
+            }
+            
+            .preview-controls {
+                top: 10px;
+                right: 10px;
+            }
+            
+            .preview-control-btn {
+                width: 44px;
+                height: 44px;
+            }
         }
     </style>
 </head>
-<body class="bg-gray-50 safe-area-top safe-area-bottom">
-    <div class="container mx-auto px-4 py-6 max-w-md">
+<body class="bg-gray-100 safe-area-top safe-area-bottom">
+    <div class="container mx-auto max-w-4xl">
         <!-- ヘッダー -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                <i class="fas fa-tasks text-blue-600 mr-2"></i>
-                タスク管理アプリ
-            </h1>
-            <p class="text-gray-600">株式会社アイワエンジニアリング様専用</p>
+        <header class="bg-white shadow-sm rounded-lg p-6 mb-6 mt-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800 flex items-center">
+                        <i class="fas fa-tasks text-blue-600 mr-3"></i>
+                        タスク管理アプリ
+                    </h1>
+                    <p class="text-gray-600 text-sm mt-1">株式会社アイワエンジニアリング様専用</p>
+                </div>
+                <button id="addTaskBtn" class="btn-primary touch-target">
+                    <i class="fas fa-plus mr-2"></i>
+                    新しいタスクを追加
+                </button>
+            </div>
+        </header>
+
+        <!-- 通知許可 -->
+        <div id="notificationPermission" class="notification-permission" style="display: none;">
+            <p class="mb-3">📅 期日の通知を受け取るには、通知を許可してください</p>
+            <button id="enableNotifications" class="btn-primary">通知を許可</button>
         </div>
 
-        <!-- 新しいタスクを追加ボタン -->
-        <button id="addTaskBtn" class="btn-large w-full bg-blue-600 text-white mb-6 touch-target haptic-feedback">
-            <i class="fas fa-plus mr-2"></i>新しいタスクを追加
-        </button>
-
-        <!-- ファイルドロップエリア -->
-        <div id="fileDropArea" class="file-drop-area flex flex-col items-center justify-center p-6 mb-6 bg-white">
-            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
-            <p class="text-gray-600 text-center mb-2">JSONファイルをここにドロップまたは</p>
-            <button id="fileSelectBtn" class="btn-large bg-green-600 text-white touch-target haptic-feedback">
-                <i class="fas fa-file-import mr-2"></i>ファイルを選択
-            </button>
-            <input type="file" id="fileInput" accept=".json,.txt" style="display: none;">
+        <!-- インポート/エクスポート -->
+        <div class="bg-white rounded-lg p-6 mb-6">
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button id="exportBtn" class="btn-secondary touch-target">
+                    <i class="fas fa-download mr-2"></i>
+                    エクスポート
+                </button>
+                <button id="importBtn" class="btn-secondary touch-target">
+                    <i class="fas fa-upload mr-2"></i>
+                    インポート
+                </button>
+                <input type="file" id="importFile" accept=".json,.txt" style="display: none;">
+            </div>
         </div>
 
         <!-- 検索とフィルター -->
-        <div class="mb-6">
-            <input type="text" id="searchInput" placeholder="タスクを検索..." 
-                   class="input-field w-full mb-4">
-            <div class="flex gap-2">
-                <button id="filterAll" class="btn-large flex-1 bg-gray-600 text-white text-sm haptic-feedback">
-                    すべて
-                </button>
-                <button id="filterPending" class="btn-large flex-1 bg-yellow-600 text-white text-sm haptic-feedback">
-                    未完了
-                </button>
-                <button id="filterCompleted" class="btn-large flex-1 bg-green-600 text-white text-sm haptic-feedback">
-                    完了
-                </button>
+        <div class="bg-white rounded-lg p-6 mb-6">
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="searchInput" placeholder="タスクを検索..." class="input-field flex-1">
+                <select id="filterSelect" class="input-field">
+                    <option value="all">すべて</option>
+                    <option value="pending">未完了</option>
+                    <option value="completed">完了済み</option>
+                </select>
             </div>
-        </div>
-
-        <!-- 操作ボタン -->
-        <div class="flex gap-2 mb-6">
-            <button id="exportBtn" class="btn-large flex-1 bg-green-600 text-white touch-target haptic-feedback">
-                <i class="fas fa-download mr-2"></i>エクスポート
-            </button>
-            <button id="calendarBtn" class="btn-large flex-1 bg-purple-600 text-white touch-target haptic-feedback">
-                <i class="fas fa-calendar mr-2"></i>カレンダー
-            </button>
         </div>
 
         <!-- タスクリスト -->
-        <div id="taskList" class="scroll-container"></div>
-
-        <!-- 通知許可ボタン -->
-        <div id="notificationBanner" class="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg mb-4" style="display: none;">
-            <div class="flex items-center justify-between">
-                <span>通知を有効にして期日をお知らせ</span>
-                <button id="enableNotifications" class="bg-blue-600 text-white px-4 py-2 rounded-lg haptic-feedback">
-                    有効にする
-                </button>
-            </div>
+        <div id="taskList" class="space-y-4">
+            <!-- タスクがここに動的に追加されます -->
         </div>
     </div>
 
-    <!-- タスク編集モーダル -->
-    <div id="taskModal" class="modal">
-        <div class="modal-content p-6 m-4">
-            <div class="flex justify-between items-center mb-6">
-                <h2 id="modalTitle" class="text-2xl font-bold">タスクを編集</h2>
-                <button id="closeModal" class="text-gray-500 touch-target haptic-feedback">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
+    <!-- タスク追加/編集モーダル -->
+    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-md w-full max-h-screen overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="modalTitle" class="text-xl font-bold">新しいタスク</h2>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="taskForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">タスク名</label>
+                        <input type="text" id="taskName" class="input-field w-full" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">記入日</label>
+                        <input type="date" id="entryDate" class="input-field w-full" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">発注日（依頼日）</label>
+                        <input type="datetime-local" id="orderDate" class="input-field w-full">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">中間確認日</label>
+                        <input type="datetime-local" id="checkDate" class="input-field w-full">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">完了日</label>
+                        <input type="datetime-local" id="completeDate" class="input-field w-full">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">備考欄</label>
+                        <textarea id="remarks" class="input-field w-full" rows="3"></textarea>
+                    </div>
+                    
+                    <!-- ファイル添付 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">ファイル添付</label>
+                        <div class="file-drop-zone" id="fileDropZone">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-600">ファイルをドラッグ&ドロップ</p>
+                            <p class="text-sm text-gray-500">または</p>
+                            <button type="button" class="btn-secondary mt-2" id="selectFileBtn">ファイルを選択</button>
+                        </div>
+                        <input type="file" id="fileInput" multiple style="display: none;">
+                        <div id="fileList" class="mt-4"></div>
+                    </div>
+                    
+                    <div class="flex gap-4 pt-6">
+                        <button type="submit" class="btn-primary flex-1">保存</button>
+                        <button type="button" id="cancelBtn" class="btn-secondary flex-1">キャンセル</button>
+                    </div>
+                </form>
             </div>
-            
-            <form id="taskForm">
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">タスク名</label>
-                    <input type="text" id="taskName" class="input-field w-full" required>
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">記入日</label>
-                    <input type="date" id="entryDate" class="input-field w-full">
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">発注日（依頼日）</label>
-                    <input type="datetime-local" id="orderDate" class="input-field w-full">
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">中間確認日</label>
-                    <input type="datetime-local" id="checkDate" class="input-field w-full">
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">完了日</label>
-                    <input type="datetime-local" id="completeDate" class="input-field w-full">
-                </div>
-                
-                <div class="mb-4">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">備考欄</label>
-                    <textarea id="remarks" class="input-field w-full h-24 resize-none"></textarea>
-                </div>
-                
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-lg font-bold mb-2">添付ファイル</label>
-                    <input type="file" id="taskFiles" multiple class="input-field w-full">
-                    <div id="fileList" class="mt-2"></div>
-                </div>
-                
-                <div class="flex gap-2">
-                    <button type="submit" class="btn-large flex-1 bg-blue-600 text-white haptic-feedback">
-                        <i class="fas fa-save mr-2"></i>保存
-                    </button>
-                    <button type="button" id="deleteTask" class="btn-large bg-red-600 text-white touch-target haptic-feedback">
-                        <i class="fas fa-trash mr-2"></i>削除
-                    </button>
-                    <button type="button" id="duplicateTask" class="btn-large bg-gray-600 text-white touch-target haptic-feedback">
-                        <i class="fas fa-copy mr-2"></i>複製
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 
     <!-- ファイルプレビューモーダル -->
-    <div id="previewModal" class="modal">
-        <div class="modal-content p-4">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="previewTitle" class="text-xl font-bold"></h3>
-                <button id="closePreview" class="text-gray-500 touch-target haptic-feedback">
-                    <i class="fas fa-times text-2xl"></i>
-                </button>
+    <div id="previewModal" class="preview-modal">
+        <div class="preview-content">
+            <div class="preview-controls">
+                <div class="preview-control-btn" id="closePreview">
+                    <i class="fas fa-times"></i>
+                </div>
+                <div class="preview-control-btn" id="zoomIn">
+                    <i class="fas fa-search-plus"></i>
+                </div>
+                <div class="preview-control-btn" id="zoomOut">
+                    <i class="fas fa-search-minus"></i>
+                </div>
+                <div class="preview-control-btn" id="resetZoom">
+                    <i class="fas fa-expand-arrows-alt"></i>
+                </div>
             </div>
-            <div id="previewContent"></div>
+            <div id="previewContainer"></div>
         </div>
     </div>
 
-    <!-- 通知エリア -->
-    <div id="notification" class="notification">
-        <div class="bg-white border border-gray-300 rounded-lg p-4 shadow-lg">
-            <div id="notificationContent"></div>
-        </div>
+    <!-- ローディング -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
     </div>
 
     <script>
         class TaskManager {
             constructor() {
                 this.tasks = [];
-                this.currentFilter = 'all';
-                this.editingTaskId = null;
-                this.notificationPermission = false;
+                this.currentTaskId = null;
+                this.currentScale = 1;
+                this.currentFile = null;
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.isZooming = false;
                 
                 this.initializeApp();
                 this.setupEventListeners();
                 this.loadTasks();
                 this.checkNotificationPermission();
-                this.setupNotificationWorker();
             }
-            
+
             initializeApp() {
-                // iOS Safari 最適化
-                if (navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')) {
-                    document.body.style.webkitTextSizeAdjust = '100%';
-                    document.body.style.webkitTouchCallout = 'none';
-                }
-                
-                // パフォーマンス最適化
+                // Service Worker registration for PWA
                 if ('serviceWorker' in navigator) {
-                    this.registerServiceWorker();
+                    navigator.serviceWorker.register('data:text/javascript,self.addEventListener("install", e => e.waitUntil(self.skipWaiting())); self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));')
+                        .catch(console.error);
                 }
-                
-                // 振動フィードバック
-                this.hapticFeedback = (type = 'light') => {
-                    if ('vibrate' in navigator) {
-                        switch(type) {
-                            case 'light': navigator.vibrate(10); break;
-                            case 'medium': navigator.vibrate(20); break;
-                            case 'heavy': navigator.vibrate(50); break;
-                        }
-                    }
-                };
             }
-            
-            registerServiceWorker() {
-                const swCode = `
-                    self.addEventListener('install', (e) => {
-                        console.log('Service Worker installed');
-                    });
-                    
-                    self.addEventListener('activate', (e) => {
-                        console.log('Service Worker activated');
-                    });
-                `;
-                
-                const blob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(blob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(() => console.log('SW registered'))
-                    .catch((err) => console.log('SW registration failed'));
-            }
-            
+
             setupEventListeners() {
-                // メインボタンイベント
-                document.getElementById('addTaskBtn').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.openTaskModal();
-                });
-                
-                document.getElementById('exportBtn').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.exportTasks();
-                });
-                
-                document.getElementById('calendarBtn').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.showCalendarOptions();
-                });
-                
+                // メインボタン
+                document.getElementById('addTaskBtn').addEventListener('click', () => this.openTaskModal());
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportTasks());
+                document.getElementById('importBtn').addEventListener('click', () => this.importTasks());
+                document.getElementById('importFile').addEventListener('change', (e) => this.handleFileImport(e));
+
+                // モーダル
+                document.getElementById('closeModal').addEventListener('click', () => this.closeTaskModal());
+                document.getElementById('cancelBtn').addEventListener('click', () => this.closeTaskModal());
+                document.getElementById('taskForm').addEventListener('submit', (e) => this.saveTask(e));
+
                 // ファイル関連
-                document.getElementById('fileSelectBtn').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    document.getElementById('fileInput').click();
-                });
+                document.getElementById('selectFileBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelection(e));
                 
-                document.getElementById('fileInput').addEventListener('change', (e) => {
-                    this.handleFileImport(e.target.files[0]);
-                });
-                
-                // ドラッグ&ドロップ
-                const dropArea = document.getElementById('fileDropArea');
-                dropArea.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    dropArea.classList.add('dragover');
-                });
-                
-                dropArea.addEventListener('dragleave', () => {
-                    dropArea.classList.remove('dragover');
-                });
-                
-                dropArea.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    dropArea.classList.remove('dragover');
-                    const file = e.dataTransfer.files[0];
-                    if (file) this.handleFileImport(file);
-                });
-                
+                const dropZone = document.getElementById('fileDropZone');
+                dropZone.addEventListener('dragover', (e) => this.handleDragOver(e));
+                dropZone.addEventListener('dragleave', (e) => this.handleDragLeave(e));
+                dropZone.addEventListener('drop', (e) => this.handleFileDrop(e));
+
+                // プレビュー関連
+                document.getElementById('closePreview').addEventListener('click', () => this.closePreview());
+                document.getElementById('zoomIn').addEventListener('click', () => this.zoomIn());
+                document.getElementById('zoomOut').addEventListener('click', () => this.zoomOut());
+                document.getElementById('resetZoom').addEventListener('click', () => this.resetZoom());
+
                 // 検索とフィルター
-                document.getElementById('searchInput').addEventListener('input', () => {
-                    this.renderTasks();
-                });
-                
-                document.getElementById('filterAll').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.setFilter('all');
-                });
-                
-                document.getElementById('filterPending').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.setFilter('pending');
-                });
-                
-                document.getElementById('filterCompleted').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.setFilter('completed');
-                });
-                
-                // モーダルイベント
-                document.getElementById('closeModal').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.closeTaskModal();
-                });
-                
-                document.getElementById('taskModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'taskModal') {
-                        this.closeTaskModal();
-                    }
-                });
-                
-                document.getElementById('taskForm').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.hapticFeedback('medium');
-                    this.saveTask();
-                });
-                
-                document.getElementById('deleteTask').addEventListener('click', () => {
-                    this.hapticFeedback('heavy');
-                    this.deleteCurrentTask();
-                });
-                
-                document.getElementById('duplicateTask').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.duplicateCurrentTask();
-                });
-                
-                // プレビューモーダル
-                document.getElementById('closePreview').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.closePreviewModal();
-                });
-                
-                document.getElementById('previewModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'previewModal') {
-                        this.closePreviewModal();
-                    }
-                });
-                
+                document.getElementById('searchInput').addEventListener('input', () => this.filterTasks());
+                document.getElementById('filterSelect').addEventListener('change', () => this.filterTasks());
+
                 // 通知許可
-                document.getElementById('enableNotifications').addEventListener('click', () => {
-                    this.hapticFeedback('light');
-                    this.requestNotificationPermission();
+                document.getElementById('enableNotifications').addEventListener('click', () => this.requestNotificationPermission());
+
+                // プレビューモーダルのタッチイベント
+                const previewModal = document.getElementById('previewModal');
+                previewModal.addEventListener('touchstart', (e) => this.handleTouchStart(e));
+                previewModal.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+                previewModal.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+                // クリック外でモーダル閉じる
+                document.getElementById('taskModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'taskModal') this.closeTaskModal();
                 });
-                
-                // キーボードイベント
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') {
-                        this.closeTaskModal();
-                        this.closePreviewModal();
-                    }
+                previewModal.addEventListener('click', (e) => {
+                    if (e.target.id === 'previewModal') this.closePreview();
                 });
             }
-            
-            // iPhone特化のファイルインポート処理
-            async handleFileImport(file) {
-                if (!file) return;
-                
-                this.showNotification('ファイルを処理中...', 'info');
-                
-                try {
-                    // ファイル形式の柔軟な判定
-                    const isValidFile = file.name.endsWith('.json') || 
-                                       file.name.endsWith('.json.txt') || 
-                                       file.name.endsWith('.txt') ||
-                                       file.type === 'application/json' ||
-                                       file.type === 'text/plain';
-                    
-                    if (!isValidFile) {
-                        throw new Error('サポートされていないファイル形式です。.json、.json.txt、.txtファイルを選択してください。');
-                    }
-                    
-                    // iOS Safari対応のファイル読み込み
-                    const text = await this.readFileAsText(file);
-                    
-                    if (!text || text.trim() === '') {
-                        throw new Error('ファイルが空です。有効なJSONファイルを選択してください。');
-                    }
-                    
-                    // JSON解析の改善
-                    let data;
-                    try {
-                        // まず直接解析を試行
-                        data = JSON.parse(text);
-                    } catch (parseError) {
-                        try {
-                            // 改行や特殊文字を修正して再試行
-                            const cleanedText = text.replace(/\r\n/g, '\n')
-                                                   .replace(/\r/g, '\n')
-                                                   .trim();
-                            data = JSON.parse(cleanedText);
-                        } catch (secondParseError) {
-                            // Base64デコードを試行
-                            try {
-                                const decodedText = atob(text.split(',')[1] || text);
-                                data = JSON.parse(decodedText);
-                            } catch (base64Error) {
-                                throw new Error('JSONファイルの形式が正しくありません。ファイルの内容を確認してください。');
-                            }
-                        }
-                    }
-                    
-                    // データ構造の検証
-                    if (!data || typeof data !== 'object') {
-                        throw new Error('無効なデータ形式です。');
-                    }
-                    
-                    // タスク配列の検証と修正
-                    let tasks = [];
-                    if (Array.isArray(data)) {
-                        tasks = data;
-                    } else if (data.tasks && Array.isArray(data.tasks)) {
-                        tasks = data.tasks;
-                    } else if (data.task && Array.isArray(data.task)) {
-                        tasks = data.task;
-                    } else {
-                        throw new Error('タスクデータが見つかりません。');
-                    }
-                    
-                    // 各タスクのデータ修正
-                    tasks = tasks.map(task => ({
-                        id: task.id || Date.now() + Math.random(),
-                        name: task.name || task.title || 'タスク名なし',
-                        entryDate: task.entryDate || task.entry_date || '',
-                        orderDate: task.orderDate || task.order_date || '',
-                        checkDate: task.checkDate || task.check_date || '',
-                        completeDate: task.completeDate || task.complete_date || '',
-                        remarks: task.remarks || task.memo || task.description || '',
-                        completed: Boolean(task.completed),
-                        files: Array.isArray(task.files) ? task.files : [],
-                        createdAt: task.createdAt || new Date().toISOString()
-                    }));
-                    
-                    // タスクをインポート
-                    this.tasks = tasks;
-                    this.saveTasks();
+
+            loadTasks() {
+                const saved = localStorage.getItem('tasks');
+                if (saved) {
+                    this.tasks = JSON.parse(saved);
                     this.renderTasks();
-                    
-                    this.hapticFeedback('medium');
-                    this.showNotification(`${tasks.length}件のタスクをインポートしました`, 'success');
-                    
-                    // ファイル入力をリセット
-                    document.getElementById('fileInput').value = '';
-                    
-                } catch (error) {
-                    console.error('Import error:', error);
-                    this.hapticFeedback('heavy');
-                    this.showNotification(`インポートエラー: ${error.message}`, 'error');
+                    this.setupNotifications();
                 }
             }
-            
-            // iOS Safari対応のファイル読み込み
-            readFileAsText(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    
-                    reader.onload = (e) => {
-                        try {
-                            resolve(e.target.result);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    };
-                    
-                    reader.onerror = () => {
-                        reject(new Error('ファイルの読み込みに失敗しました'));
-                    };
-                    
-                    // iOS Safari対応
-                    try {
-                        reader.readAsText(file, 'UTF-8');
-                    } catch (error) {
-                        reject(new Error('ファイルの読み込みでエラーが発生しました'));
-                    }
-                });
+
+            saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(this.tasks));
+                this.setupNotifications();
             }
-            
-            openTaskModal(task = null) {
-                this.editingTaskId = task ? task.id : null;
-                document.getElementById('modalTitle').textContent = task ? 'タスクを編集' : 'タスクを追加';
+
+            openTaskModal(taskId = null) {
+                this.currentTaskId = taskId;
+                const modal = document.getElementById('taskModal');
+                const title = document.getElementById('modalTitle');
                 
-                if (task) {
-                    document.getElementById('taskName').value = task.name || '';
-                    document.getElementById('entryDate').value = task.entryDate || '';
-                    document.getElementById('orderDate').value = task.orderDate || '';
-                    document.getElementById('checkDate').value = task.checkDate || '';
-                    document.getElementById('completeDate').value = task.completeDate || '';
-                    document.getElementById('remarks').value = task.remarks || '';
-                    this.displayFileList(task.files || []);
+                if (taskId) {
+                    title.textContent = 'タスクを編集';
+                    this.populateTaskForm(taskId);
                 } else {
-                    document.getElementById('taskForm').reset();
-                    document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-                    this.displayFileList([]);
+                    title.textContent = '新しいタスク';
+                    this.resetTaskForm();
                 }
                 
-                document.getElementById('taskModal').classList.add('show');
-                
-                // フォーカスをタスク名フィールドに設定
-                setTimeout(() => {
-                    document.getElementById('taskName').focus();
-                }, 100);
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
             }
-            
+
             closeTaskModal() {
-                document.getElementById('taskModal').classList.remove('show');
-                this.editingTaskId = null;
+                document.getElementById('taskModal').classList.add('hidden');
+                document.body.style.overflow = '';
+                this.resetTaskForm();
             }
-            
-            saveTask() {
-                const formData = {
-                    name: document.getElementById('taskName').value.trim(),
+
+            resetTaskForm() {
+                document.getElementById('taskForm').reset();
+                document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+                document.getElementById('fileList').innerHTML = '';
+                this.currentTaskFiles = [];
+            }
+
+            populateTaskForm(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                document.getElementById('taskName').value = task.name;
+                document.getElementById('entryDate').value = task.entryDate;
+                document.getElementById('orderDate').value = task.orderDate;
+                document.getElementById('checkDate').value = task.checkDate;
+                document.getElementById('completeDate').value = task.completeDate;
+                document.getElementById('remarks').value = task.remarks;
+                
+                this.currentTaskFiles = task.files || [];
+                this.renderFileList();
+            }
+
+            saveTask(e) {
+                e.preventDefault();
+                
+                const taskData = {
+                    name: document.getElementById('taskName').value,
                     entryDate: document.getElementById('entryDate').value,
                     orderDate: document.getElementById('orderDate').value,
                     checkDate: document.getElementById('checkDate').value,
                     completeDate: document.getElementById('completeDate').value,
-                    remarks: document.getElementById('remarks').value.trim()
+                    remarks: document.getElementById('remarks').value,
+                    files: this.currentTaskFiles || [],
+                    completed: false
                 };
-                
-                if (!formData.name) {
-                    this.showNotification('タスク名を入力してください', 'error');
-                    return;
-                }
-                
-                const files = this.getUploadedFiles();
-                
-                if (this.editingTaskId) {
-                    // 既存タスクの更新
-                    const taskIndex = this.tasks.findIndex(t => t.id === this.editingTaskId);
-                    if (taskIndex !== -1) {
-                        this.tasks[taskIndex] = {
-                            ...this.tasks[taskIndex],
-                            ...formData,
-                            files: files,
-                            updatedAt: new Date().toISOString()
-                        };
-                    }
+
+                if (this.currentTaskId) {
+                    const taskIndex = this.tasks.findIndex(t => t.id === this.currentTaskId);
+                    this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...taskData };
                 } else {
-                    // 新規タスクの追加
-                    const newTask = {
-                        id: Date.now(),
-                        ...formData,
-                        completed: false,
-                        files: files,
-                        createdAt: new Date().toISOString()
-                    };
-                    this.tasks.unshift(newTask);
+                    taskData.id = Date.now();
+                    taskData.createdAt = new Date().toISOString();
+                    this.tasks.push(taskData);
                 }
-                
+
                 this.saveTasks();
                 this.renderTasks();
                 this.closeTaskModal();
-                this.showNotification('タスクを保存しました', 'success');
             }
-            
-            deleteCurrentTask() {
-                if (!this.editingTaskId) return;
-                
+
+            deleteTask(taskId) {
                 if (confirm('このタスクを削除しますか？')) {
-                    this.tasks = this.tasks.filter(t => t.id !== this.editingTaskId);
+                    this.tasks = this.tasks.filter(t => t.id !== taskId);
                     this.saveTasks();
                     this.renderTasks();
-                    this.closeTaskModal();
-                    this.showNotification('タスクを削除しました', 'success');
                 }
             }
-            
-            duplicateCurrentTask() {
-                if (!this.editingTaskId) return;
-                
-                const task = this.tasks.find(t => t.id === this.editingTaskId);
+
+            duplicateTask(taskId) {
+                const original = this.tasks.find(t => t.id === taskId);
+                if (!original) return;
+
+                const duplicate = {
+                    ...original,
+                    id: Date.now(),
+                    name: original.name + ' (コピー)',
+                    createdAt: new Date().toISOString(),
+                    completed: false
+                };
+
+                this.tasks.push(duplicate);
+                this.saveTasks();
+                this.renderTasks();
+            }
+
+            toggleTask(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
                 if (task) {
-                    const duplicated = {
-                        ...task,
-                        id: Date.now(),
-                        name: task.name + ' (コピー)',
-                        completed: false,
-                        createdAt: new Date().toISOString()
-                    };
-                    this.tasks.unshift(duplicated);
+                    task.completed = !task.completed;
                     this.saveTasks();
                     this.renderTasks();
-                    this.closeTaskModal();
-                    this.showNotification('タスクを複製しました', 'success');
                 }
             }
-            
-            getUploadedFiles() {
-                const fileInput = document.getElementById('taskFiles');
-                const files = [];
+
+            renderTasks() {
+                const container = document.getElementById('taskList');
+                const filteredTasks = this.getFilteredTasks();
                 
-                if (fileInput.files.length > 0) {
-                    Array.from(fileInput.files).forEach(file => {
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                            files.push({
-                                id: Date.now() + Math.random(),
-                                name: file.name,
-                                size: file.size,
-                                type: file.type,
-                                data: e.target.result
-                            });
-                        };
-                        reader.readAsDataURL(file);
-                    });
-                }
-                
-                return files;
-            }
-            
-            displayFileList(files) {
-                const fileList = document.getElementById('fileList');
-                fileList.innerHTML = '';
-                
-                files.forEach(file => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-info flex items-center justify-between';
-                    fileItem.innerHTML = `
-                        <div class="flex items-center">
-                            <i class="fas fa-file mr-2"></i>
-                            <span class="font-medium">${file.name}</span>
-                            <span class="text-sm text-gray-500 ml-2">(${this.formatFileSize(file.size)})</span>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="button" class="text-blue-600 touch-target haptic-feedback" onclick="taskManager.previewFile('${file.id}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button type="button" class="text-red-600 touch-target haptic-feedback" onclick="taskManager.removeFile('${file.id}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
+                if (filteredTasks.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-tasks text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-gray-500">タスクがありません</p>
                         </div>
                     `;
-                    fileList.appendChild(fileItem);
+                    return;
+                }
+
+                container.innerHTML = filteredTasks.map(task => `
+                    <div class="task-card ${task.completed ? 'task-completed' : ''}">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center flex-1">
+                                <button onclick="taskManager.toggleTask(${task.id})" class="touch-target mr-3">
+                                    <i class="fas ${task.completed ? 'fa-check-circle text-green-500' : 'fa-circle text-gray-400'} text-xl"></i>
+                                </button>
+                                <h3 class="font-semibold text-lg ${task.completed ? 'line-through text-gray-500' : 'text-gray-800'}">${task.name}</h3>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="taskManager.openTaskModal(${task.id})" class="touch-target text-blue-600">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="taskManager.duplicateTask(${task.id})" class="touch-target text-green-600">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button onclick="taskManager.deleteTask(${task.id})" class="touch-target text-red-600">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 text-sm">
+                            <div><strong>記入日:</strong> ${task.entryDate}</div>
+                            <div><strong>発注日:</strong> ${task.orderDate ? this.formatDateTime(task.orderDate) : '未設定'}</div>
+                            <div><strong>確認日:</strong> ${task.checkDate ? this.formatDateTime(task.checkDate) : '未設定'}</div>
+                            <div><strong>完了日:</strong> ${task.completeDate ? this.formatDateTime(task.completeDate) : '未設定'}</div>
+                        </div>
+                        
+                        ${task.remarks ? `<div class="mb-4 p-3 bg-gray-50 rounded"><strong>備考:</strong> ${task.remarks}</div>` : ''}
+                        
+                        ${task.files && task.files.length > 0 ? `
+                            <div class="mb-4">
+                                <strong class="block mb-2">添付ファイル:</strong>
+                                ${task.files.map(file => `
+                                    <div class="file-item" onclick="taskManager.previewFile(${task.id}, '${file.id}')">
+                                        <div class="file-icon ${this.getFileIconClass(file.type)}">
+                                            <i class="fas ${this.getFileIcon(file.type)}"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium">${file.name}</div>
+                                            <div class="text-sm text-gray-500">${this.formatFileSize(file.size)}</div>
+                                        </div>
+                                        <i class="fas fa-eye text-blue-600"></i>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+                        
+                        <div class="flex flex-wrap gap-2">
+                            ${task.orderDate ? `<button onclick="taskManager.addToCalendar('${task.name}', '${task.orderDate}', '発注日')" class="calendar-btn"><i class="fas fa-calendar-plus mr-1"></i>発注日</button>` : ''}
+                            ${task.checkDate ? `<button onclick="taskManager.addToCalendar('${task.name}', '${task.checkDate}', '中間確認日')" class="calendar-btn"><i class="fas fa-calendar-plus mr-1"></i>確認日</button>` : ''}
+                            ${task.completeDate ? `<button onclick="taskManager.addToCalendar('${task.name}', '${task.completeDate}', '完了日')" class="calendar-btn"><i class="fas fa-calendar-plus mr-1"></i>完了日</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            getFilteredTasks() {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const filter = document.getElementById('filterSelect').value;
+                
+                return this.tasks.filter(task => {
+                    const matchesSearch = task.name.toLowerCase().includes(searchTerm) ||
+                                        task.remarks.toLowerCase().includes(searchTerm);
+                    
+                    const matchesFilter = filter === 'all' ||
+                                        (filter === 'completed' && task.completed) ||
+                                        (filter === 'pending' && !task.completed);
+                    
+                    return matchesSearch && matchesFilter;
                 });
             }
-            
-            previewFile(fileId) {
-                this.hapticFeedback('light');
-                
-                // Find file in current editing task
-                let file = null;
-                if (this.editingTaskId) {
-                    const task = this.tasks.find(t => t.id === this.editingTaskId);
-                    if (task && task.files) {
-                        file = task.files.find(f => f.id.toString() === fileId.toString());
-                    }
+
+            filterTasks() {
+                this.renderTasks();
+            }
+
+            handleFileSelection(e) {
+                const files = Array.from(e.target.files);
+                this.processFiles(files);
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                document.getElementById('fileDropZone').classList.add('dragover');
+            }
+
+            handleDragLeave(e) {
+                e.preventDefault();
+                document.getElementById('fileDropZone').classList.remove('dragover');
+            }
+
+            handleFileDrop(e) {
+                e.preventDefault();
+                document.getElementById('fileDropZone').classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                this.processFiles(files);
+            }
+
+            processFiles(files) {
+                if (!this.currentTaskFiles) {
+                    this.currentTaskFiles = [];
                 }
+
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileData = {
+                            id: Date.now() + Math.random(),
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: e.target.result
+                        };
+                        this.currentTaskFiles.push(fileData);
+                        this.renderFileList();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            renderFileList() {
+                const container = document.getElementById('fileList');
+                if (!this.currentTaskFiles || this.currentTaskFiles.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                container.innerHTML = this.currentTaskFiles.map(file => `
+                    <div class="file-item">
+                        <div class="file-icon ${this.getFileIconClass(file.type)}">
+                            <i class="fas ${this.getFileIcon(file.type)}"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium">${file.name}</div>
+                            <div class="text-sm text-gray-500">${this.formatFileSize(file.size)}</div>
+                        </div>
+                        <button onclick="taskManager.removeFile('${file.id}')" class="text-red-600 hover:text-red-800 ml-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            removeFile(fileId) {
+                this.currentTaskFiles = this.currentTaskFiles.filter(f => f.id != fileId);
+                this.renderFileList();
+            }
+
+            getFileIcon(type) {
+                if (type.startsWith('image/')) return 'fa-image';
+                if (type === 'application/pdf') return 'fa-file-pdf';
+                if (type.includes('excel') || type.includes('spreadsheet')) return 'fa-file-excel';
+                if (type.includes('word') || type.includes('document')) return 'fa-file-word';
+                return 'fa-file';
+            }
+
+            getFileIconClass(type) {
+                if (type.startsWith('image/')) return 'file-image';
+                if (type === 'application/pdf') return 'file-pdf';
+                if (type.includes('excel') || type.includes('spreadsheet')) return 'file-excel';
+                if (type.includes('word') || type.includes('document')) return 'file-word';
+                return 'file-default';
+            }
+
+            previewFile(taskId, fileId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (!task) return;
                 
+                const file = task.files.find(f => f.id == fileId);
                 if (!file) return;
+
+                this.currentFile = file;
+                this.currentScale = 1;
                 
-                document.getElementById('previewTitle').textContent = file.name;
-                const content = document.getElementById('previewContent');
+                const container = document.getElementById('previewContainer');
+                const modal = document.getElementById('previewModal');
                 
                 if (file.type.startsWith('image/')) {
-                    content.innerHTML = `<img src="${file.data}" class="file-preview" alt="${file.name}">`;
+                    container.innerHTML = `<img src="${file.data}" class="preview-image" id="previewImage" alt="${file.name}">`;
                 } else if (file.type === 'application/pdf') {
-                    content.innerHTML = `
-                        <div class="text-center p-4">
-                            <i class="fas fa-file-pdf text-6xl text-red-500 mb-4"></i>
-                            <p class="mb-4">PDFファイル: ${file.name}</p>
-                            <a href="${file.data}" download="${file.name}" class="btn-large bg-blue-600 text-white inline-block">
-                                <i class="fas fa-download mr-2"></i>ダウンロード
-                            </a>
-                        </div>
-                    `;
+                    this.renderPDF(file, container);
+                } else if (file.type.includes('text/')) {
+                    this.renderText(file, container);
                 } else {
-                    content.innerHTML = `
-                        <div class="text-center p-4">
-                            <i class="fas fa-file text-6xl text-gray-500 mb-4"></i>
-                            <p class="mb-2">ファイル: ${file.name}</p>
-                            <p class="text-sm text-gray-600 mb-4">サイズ: ${this.formatFileSize(file.size)}</p>
-                            <a href="${file.data}" download="${file.name}" class="btn-large bg-blue-600 text-white inline-block">
-                                <i class="fas fa-download mr-2"></i>ダウンロード
-                            </a>
+                    container.innerHTML = `
+                        <div class="text-center text-white p-8">
+                            <i class="fas fa-file text-6xl mb-4"></i>
+                            <h3 class="text-xl font-bold mb-2">${file.name}</h3>
+                            <p class="text-gray-300">プレビューできないファイル形式です</p>
+                            <p class="text-sm text-gray-400 mt-2">サイズ: ${this.formatFileSize(file.size)}</p>
                         </div>
                     `;
                 }
                 
-                document.getElementById('previewModal').classList.add('show');
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
             }
-            
-            closePreviewModal() {
-                document.getElementById('previewModal').classList.remove('show');
+
+            renderPDF(file, container) {
+                // 簡易PDFプレビュー（実際のPDF表示は制限があるため、情報表示）
+                container.innerHTML = `
+                    <div class="preview-pdf">
+                        <div class="p-6 text-center">
+                            <i class="fas fa-file-pdf text-6xl text-red-500 mb-4"></i>
+                            <h3 class="text-xl font-bold mb-2">${file.name}</h3>
+                            <p class="text-gray-600 mb-4">PDF ファイル</p>
+                            <p class="text-sm text-gray-500">サイズ: ${this.formatFileSize(file.size)}</p>
+                            <div class="mt-6">
+                                <p class="text-gray-700">このPDFファイルの内容を確認するには、</p>
+                                <p class="text-gray-700">デバイスの標準PDFビューアーをご利用ください。</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
-            
-            removeFile(fileId) {
-                this.hapticFeedback('light');
-                // Implementation for file removal
-                console.log('Remove file:', fileId);
+
+            renderText(file, container) {
+                // Base64からテキストを抽出
+                try {
+                    const text = atob(file.data.split(',')[1]);
+                    container.innerHTML = `
+                        <div class="preview-pdf">
+                            <div class="p-6">
+                                <h3 class="text-lg font-bold mb-4">${file.name}</h3>
+                                <pre class="text-sm whitespace-pre-wrap overflow-auto max-h-96">${text}</pre>
+                            </div>
+                        </div>
+                    `;
+                } catch (e) {
+                    console.error('Text parsing error:', e);
+                    container.innerHTML = `
+                        <div class="text-center text-white p-8">
+                            <i class="fas fa-file-alt text-6xl mb-4"></i>
+                            <h3 class="text-xl font-bold mb-2">${file.name}</h3>
+                            <p class="text-gray-300">テキストを読み込めませんでした</p>
+                        </div>
+                    `;
+                }
             }
-            
+
+            closePreview() {
+                document.getElementById('previewModal').style.display = 'none';
+                document.body.style.overflow = '';
+                this.currentFile = null;
+                this.currentScale = 1;
+            }
+
+            zoomIn() {
+                this.currentScale = Math.min(this.currentScale * 1.2, 5);
+                this.applyZoom();
+            }
+
+            zoomOut() {
+                this.currentScale = Math.max(this.currentScale / 1.2, 0.1);
+                this.applyZoom();
+            }
+
+            resetZoom() {
+                this.currentScale = 1;
+                this.applyZoom();
+            }
+
+            applyZoom() {
+                const image = document.getElementById('previewImage');
+                if (image) {
+                    image.style.transform = `scale(${this.currentScale})`;
+                }
+            }
+
+            // タッチジェスチャーイベント
+            handleTouchStart(e) {
+                if (e.touches.length === 1) {
+                    this.touchStartX = e.touches[0].clientX;
+                    this.touchStartY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    this.isZooming = true;
+                    this.initialDistance = this.getDistance(e.touches[0], e.touches[1]);
+                    this.initialScale = this.currentScale;
+                }
+            }
+
+            handleTouchMove(e) {
+                if (this.isZooming && e.touches.length === 2) {
+                    e.preventDefault();
+                    const currentDistance = this.getDistance(e.touches[0], e.touches[1]);
+                    const scale = (currentDistance / this.initialDistance) * this.initialScale;
+                    this.currentScale = Math.max(0.1, Math.min(5, scale));
+                    this.applyZoom();
+                }
+            }
+
+            handleTouchEnd(e) {
+                if (e.touches.length === 0) {
+                    this.isZooming = false;
+                }
+            }
+
+            getDistance(touch1, touch2) {
+                const dx = touch1.clientX - touch2.clientX;
+                const dy = touch1.clientY - touch2.clientY;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            addToCalendar(title, dateTime, type) {
+                const date = new Date(dateTime);
+                const startDate = date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                const endDate = new Date(date.getTime() + 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                
+                const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title + ' - ' + type)}&dates=${startDate}/${endDate}&details=${encodeURIComponent('タスク管理アプリから追加されました')}`;
+                
+                window.open(googleUrl, '_blank');
+            }
+
+            exportTasks() {
+                const dataStr = JSON.stringify(this.tasks, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `tasks_backup_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+            }
+
+            importTasks() {
+                document.getElementById('importFile').click();
+            }
+
+            handleFileImport(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        let content = event.target.result;
+                        
+                        // JSONまたはJSON.TXTファイルの処理
+                        if (file.name.endsWith('.json.txt') || file.name.endsWith('.txt')) {
+                            // テキストファイルとして読み込み、JSON部分を抽出
+                            const jsonMatch = content.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) {
+                                content = jsonMatch[0];
+                            }
+                        }
+                        
+                        const importedData = JSON.parse(content);
+                        
+                        if (importedData.tasks && Array.isArray(importedData.tasks)) {
+                            if (confirm('既存のタスクに追加しますか？（キャンセルで上書き）')) {
+                                this.tasks = [...this.tasks, ...importedData.tasks];
+                            } else {
+                                this.tasks = importedData.tasks;
+                            }
+                        } else if (Array.isArray(importedData)) {
+                            if (confirm('既存のタスクに追加しますか？（キャンセルで上書き）')) {
+                                this.tasks = [...this.tasks, ...importedData];
+                            } else {
+                                this.tasks = importedData;
+                            }
+                        } else {
+                            throw new Error('無効なファイル形式です');
+                        }
+                        
+                        this.saveTasks();
+                        this.renderTasks();
+                        alert('インポートが完了しました！');
+                        
+                    } catch (error) {
+                        console.error('Import error:', error);
+                        alert('ファイル形式が正しくありません。有効なJSONファイルを選択してください。\n\nエラー詳細: ' + error.message);
+                    }
+                };
+                
+                reader.onerror = () => {
+                    alert('ファイルの読み込みに失敗しました。');
+                };
+                
+                reader.readAsText(file, 'UTF-8');
+            }
+
+            checkNotificationPermission() {
+                if ('Notification' in window) {
+                    if (Notification.permission === 'default') {
+                        document.getElementById('notificationPermission').style.display = 'block';
+                    }
+                }
+            }
+
+            requestNotificationPermission() {
+                if ('Notification' in window) {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            document.getElementById('notificationPermission').style.display = 'none';
+                            this.setupNotifications();
+                        }
+                    });
+                }
+            }
+
+            setupNotifications() {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    this.tasks.forEach(task => {
+                        if (!task.completed) {
+                            [task.orderDate, task.checkDate, task.completeDate].forEach(date => {
+                                if (date) {
+                                    this.scheduleNotification(task, date);
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+
+            scheduleNotification(task, dateTime) {
+                const notificationTime = new Date(dateTime).getTime() - Date.now();
+                if (notificationTime > 0) {
+                    setTimeout(() => {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification(`📋 ${task.name}`, {
+                                body: '期日が近づいています。忘れていませんか？',
+                                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="50">📋</text></svg>'
+                            });
+                        }
+                    }, notificationTime);
+                }
+            }
+
+            formatDateTime(dateTime) {
+                const date = new Date(dateTime);
+                return date.toLocaleString('ja-JP');
+            }
+
             formatFileSize(bytes) {
                 if (bytes === 0) return '0 Bytes';
                 const k = 1024;
@@ -845,385 +1083,10 @@
                 const i = Math.floor(Math.log(bytes) / Math.log(k));
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
-            
-            setFilter(filter) {
-                this.currentFilter = filter;
-                document.querySelectorAll('[id^="filter"]').forEach(btn => {
-                    btn.classList.remove('bg-blue-600');
-                    btn.classList.add('bg-gray-600');
-                });
-                document.getElementById(`filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`).classList.remove('bg-gray-600');
-                document.getElementById(`filter${filter.charAt(0).toUpperCase() + filter.slice(1)}`).classList.add('bg-blue-600');
-                this.renderTasks();
-            }
-            
-            renderTasks() {
-                const taskList = document.getElementById('taskList');
-                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-                
-                let filteredTasks = this.tasks.filter(task => {
-                    const matchesSearch = task.name.toLowerCase().includes(searchTerm) ||
-                                        task.remarks.toLowerCase().includes(searchTerm);
-                    
-                    switch (this.currentFilter) {
-                        case 'pending': return matchesSearch && !task.completed;
-                        case 'completed': return matchesSearch && task.completed;
-                        default: return matchesSearch;
-                    }
-                });
-                
-                if (filteredTasks.length === 0) {
-                    taskList.innerHTML = `
-                        <div class="text-center text-gray-500 py-12">
-                            <i class="fas fa-clipboard-list text-6xl mb-4"></i>
-                            <p class="text-lg">タスクがありません</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                taskList.innerHTML = filteredTasks.map(task => `
-                    <div class="task-item p-6 touch-target" onclick="taskManager.openTaskModal(${JSON.stringify(task).replace(/"/g, '&quot;')})">
-                        <div class="flex items-start justify-between mb-4">
-                            <div class="flex-1">
-                                <h3 class="text-xl font-bold mb-2 ${task.completed ? 'line-through text-gray-500' : 'text-gray-800'}">${task.name}</h3>
-                                ${task.remarks ? `<p class="text-gray-600 mb-2">${task.remarks}</p>` : ''}
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button class="touch-target haptic-feedback" onclick="event.stopPropagation(); taskManager.toggleComplete('${task.id}')">
-                                    <i class="fas ${task.completed ? 'fa-check-circle text-green-600' : 'fa-circle text-gray-400'} text-2xl"></i>
-                                </button>
-                                ${task.files && task.files.length > 0 ? `<i class="fas fa-paperclip text-gray-500"></i>` : ''}
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 gap-2 text-sm">
-                            ${task.entryDate ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-calendar-plus text-blue-600 w-5"></i>
-                                    <span class="ml-2">記入: ${new Date(task.entryDate).toLocaleDateString('ja-JP')}</span>
-                                </div>
-                            ` : ''}
-                            ${task.orderDate ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-paper-plane text-purple-600 w-5"></i>
-                                    <span class="ml-2">発注: ${new Date(task.orderDate).toLocaleString('ja-JP')}</span>
-                                </div>
-                            ` : ''}
-                            ${task.checkDate ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-search text-yellow-600 w-5"></i>
-                                    <span class="ml-2">確認: ${new Date(task.checkDate).toLocaleString('ja-JP')}</span>
-                                </div>
-                            ` : ''}
-                            ${task.completeDate ? `
-                                <div class="flex items-center">
-                                    <i class="fas fa-check-double text-green-600 w-5"></i>
-                                    <span class="ml-2">完了: ${new Date(task.completeDate).toLocaleString('ja-JP')}</span>
-                                </div>
-                            ` : ''}
-                        </div>
-                        
-                        ${task.files && task.files.length > 0 ? `
-                            <div class="mt-4 pt-4 border-t">
-                                <div class="flex flex-wrap gap-2">
-                                    ${task.files.map(file => `
-                                        <button class="bg-gray-100 px-3 py-1 rounded-full text-sm touch-target haptic-feedback" 
-                                                onclick="event.stopPropagation(); taskManager.previewTaskFile('${task.id}', '${file.id}')">
-                                            <i class="fas fa-file mr-1"></i>${file.name}
-                                        </button>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-            }
-            
-            previewTaskFile(taskId, fileId) {
-                this.hapticFeedback('light');
-                const task = this.tasks.find(t => t.id.toString() === taskId.toString());
-                if (!task || !task.files) return;
-                
-                const file = task.files.find(f => f.id.toString() === fileId.toString());
-                if (!file) return;
-                
-                document.getElementById('previewTitle').textContent = file.name;
-                const content = document.getElementById('previewContent');
-                
-                if (file.type.startsWith('image/')) {
-                    content.innerHTML = `<img src="${file.data}" class="file-preview" alt="${file.name}">`;
-                } else if (file.type === 'application/pdf') {
-                    content.innerHTML = `
-                        <div class="text-center p-4">
-                            <i class="fas fa-file-pdf text-6xl text-red-500 mb-4"></i>
-                            <p class="mb-4">${file.name}</p>
-                            <p class="text-sm text-gray-600 mb-4">サイズ: ${this.formatFileSize(file.size)}</p>
-                            <a href="${file.data}" download="${file.name}" class="btn-large bg-blue-600 text-white inline-block haptic-feedback">
-                                <i class="fas fa-download mr-2"></i>ダウンロード
-                            </a>
-                        </div>
-                    `;
-                } else {
-                    content.innerHTML = `
-                        <div class="text-center p-4">
-                            <i class="fas fa-file text-6xl text-gray-500 mb-4"></i>
-                            <p class="mb-2">${file.name}</p>
-                            <p class="text-sm text-gray-600 mb-4">サイズ: ${this.formatFileSize(file.size)}</p>
-                            <a href="${file.data}" download="${file.name}" class="btn-large bg-blue-600 text-white inline-block haptic-feedback">
-                                <i class="fas fa-download mr-2"></i>ダウンロード
-                            </a>
-                        </div>
-                    `;
-                }
-                
-                document.getElementById('previewModal').classList.add('show');
-            }
-            
-            toggleComplete(taskId) {
-                this.hapticFeedback('medium');
-                const task = this.tasks.find(t => t.id.toString() === taskId.toString());
-                if (task) {
-                    task.completed = !task.completed;
-                    task.updatedAt = new Date().toISOString();
-                    this.saveTasks();
-                    this.renderTasks();
-                }
-            }
-            
-            exportTasks() {
-                const data = {
-                    tasks: this.tasks,
-                    exportedAt: new Date().toISOString(),
-                    version: '1.0'
-                };
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `tasks_backup_${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.showNotification('タスクをエクスポートしました', 'success');
-            }
-            
-            showCalendarOptions() {
-                const modal = document.createElement('div');
-                modal.className = 'modal show';
-                modal.innerHTML = `
-                    <div class="modal-content p-6 m-4">
-                        <h2 class="text-2xl font-bold mb-6">カレンダー連携</h2>
-                        <div class="space-y-4">
-                            <button class="btn-large w-full bg-blue-600 text-white haptic-feedback" onclick="taskManager.exportCalendar()">
-                                <i class="fas fa-download mr-2"></i>.icsファイルをダウンロード
-                            </button>
-                            <button class="btn-large w-full bg-green-600 text-white haptic-feedback" onclick="taskManager.openGoogleCalendar()">
-                                <i class="fab fa-google mr-2"></i>Googleカレンダーで開く
-                            </button>
-                            <button class="btn-large w-full bg-gray-600 text-white haptic-feedback" onclick="this.parentElement.parentElement.parentElement.remove()">
-                                <i class="fas fa-times mr-2"></i>閉じる
-                            </button>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(modal);
-            }
-            
-            exportCalendar() {
-                let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//TaskManager//TaskManager//JP\n';
-                
-                this.tasks.forEach(task => {
-                    if (task.orderDate) {
-                        icsContent += this.createICSEvent(task, 'orderDate', '発注日: ');
-                    }
-                    if (task.checkDate) {
-                        icsContent += this.createICSEvent(task, 'checkDate', '確認日: ');
-                    }
-                    if (task.completeDate) {
-                        icsContent += this.createICSEvent(task, 'completeDate', '完了日: ');
-                    }
-                });
-                
-                icsContent += 'END:VCALENDAR';
-                
-                const blob = new Blob([icsContent], { type: 'text/calendar' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `tasks_calendar_${new Date().toISOString().split('T')[0]}.ics`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.showNotification('カレンダーファイルをダウンロードしました', 'success');
-            }
-            
-            createICSEvent(task, dateField, prefix) {
-                const date = new Date(task[dateField]);
-                const dateStr = date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-                
-                return `BEGIN:VEVENT
-DTSTART:${dateStr}
-DTEND:${dateStr}
-SUMMARY:${prefix}${task.name}
-DESCRIPTION:${task.remarks || ''}
-UID:${task.id}-${dateField}@taskmanager.local
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-END:VEVENT
-`;
-            }
-            
-            openGoogleCalendar() {
-                const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-                const firstTask = this.tasks.find(t => t.orderDate || t.checkDate || t.completeDate);
-                
-                if (firstTask) {
-                    const date = firstTask.orderDate || firstTask.checkDate || firstTask.completeDate;
-                    const params = new URLSearchParams({
-                        text: firstTask.name,
-                        dates: new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z',
-                        details: firstTask.remarks || ''
-                    });
-                    
-                    window.open(`${baseUrl}&${params.toString()}`, '_blank');
-                } else {
-                    this.showNotification('カレンダーに追加する日付が設定されたタスクがありません', 'error');
-                }
-            }
-            
-            checkNotificationPermission() {
-                if ('Notification' in window) {
-                    if (Notification.permission === 'default') {
-                        document.getElementById('notificationBanner').style.display = 'block';
-                    } else if (Notification.permission === 'granted') {
-                        this.notificationPermission = true;
-                    }
-                }
-            }
-            
-            requestNotificationPermission() {
-                if ('Notification' in window) {
-                    Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') {
-                            this.notificationPermission = true;
-                            document.getElementById('notificationBanner').style.display = 'none';
-                            this.showNotification('通知を有効にしました', 'success');
-                        }
-                    });
-                }
-            }
-            
-            setupNotificationWorker() {
-                if (!this.notificationPermission) return;
-                
-                // Check for due tasks every minute
-                setInterval(() => {
-                    this.checkDueTasks();
-                }, 60000);
-            }
-            
-            checkDueTasks() {
-                if (!this.notificationPermission) return;
-                
-                const now = new Date();
-                this.tasks.forEach(task => {
-                    if (task.completed) return;
-                    
-                    [task.orderDate, task.checkDate, task.completeDate].forEach(dateStr => {
-                        if (!dateStr) return;
-                        
-                        const taskDate = new Date(dateStr);
-                        const timeDiff = taskDate.getTime() - now.getTime();
-                        const hoursDiff = timeDiff / (1000 * 60 * 60);
-                        
-                        // Notify 1 hour before, 30 minutes before, and at the time
-                        if (hoursDiff <= 1 && hoursDiff > 0.5) {
-                            this.sendNotification(task, '1時間前');
-                        } else if (hoursDiff <= 0.5 && hoursDiff > 0) {
-                            this.sendNotification(task, '30分前');
-                        } else if (hoursDiff <= 0 && hoursDiff > -0.1) {
-                            this.sendNotification(task, '時間です');
-                        }
-                    });
-                });
-            }
-            
-            sendNotification(task, timeMessage) {
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification(`${task.name} - ${timeMessage}`, {
-                        body: '忘れていませんか？',
-                        icon: '/favicon.ico'
-                    });
-                }
-            }
-            
-            showNotification(message, type = 'info') {
-                const notification = document.getElementById('notification');
-                const content = document.getElementById('notificationContent');
-                
-                const colors = {
-                    success: 'text-green-800 bg-green-100 border-green-400',
-                    error: 'text-red-800 bg-red-100 border-red-400',
-                    info: 'text-blue-800 bg-blue-100 border-blue-400'
-                };
-                
-                content.innerHTML = `
-                    <div class="flex items-center ${colors[type] || colors.info} px-4 py-3 rounded border">
-                        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
-                        <span>${message}</span>
-                    </div>
-                `;
-                
-                notification.classList.add('show');
-                
-                setTimeout(() => {
-                    notification.classList.remove('show');
-                }, 3000);
-            }
-            
-            saveTasks() {
-                try {
-                    localStorage.setItem('tasks', JSON.stringify(this.tasks));
-                } catch (error) {
-                    console.error('Failed to save tasks:', error);
-                    this.showNotification('タスクの保存に失敗しました', 'error');
-                }
-            }
-            
-            loadTasks() {
-                try {
-                    const saved = localStorage.getItem('tasks');
-                    if (saved) {
-                        this.tasks = JSON.parse(saved);
-                        this.renderTasks();
-                    }
-                } catch (error) {
-                    console.error('Failed to load tasks:', error);
-                    this.tasks = [];
-                }
-            }
         }
-        
-        // アプリを初期化
-        let taskManager;
-        document.addEventListener('DOMContentLoaded', () => {
-            taskManager = new TaskManager();
-        });
-        
-        // iOS Safari用のタッチ改善
-        document.addEventListener('touchstart', function() {}, { passive: true });
-        
-        // バックグラウンドでの動作対応
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && taskManager) {
-                taskManager.checkDueTasks();
-            }
-        });
+
+        // アプリケーション初期化
+        const taskManager = new TaskManager();
     </script>
 </body>
 </html>
