@@ -3,855 +3,933 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>タスク管理アプリ - 実用版</title>
+    <title>タスク管理アプリ - 最終改良版</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoi44K/44K544Kv566h55CG44Ki44OX44KqIiwic2hvcnRfbmFtZSI6IuOCv+OCueOCr+euoeeQhiIsInN0YXJ0X3VybCI6Ii8iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjZmZmZmZmIiwidGhlbWVfY29sb3IiOiIjMzMzM2ZmIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjNhV1IwYUQwaU1qUWlJR2hsYVdkb2REMGlNalFpSUdacGJHdzlJaU16TXpObVppSStQR0psWTNRZ2QybGtkR2c5SWpJMElpQm9aV2xuYUhROUlqSTBJaUJ5ZUQwaU5DSWdablZzYkQwaUl6TXpNMlptSWlBdlBqd3ZjM1puUGc9PSIsInNpemVzIjoiMjR4MjQiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
     <style>
-        .task-card {
-            transition: all 0.3s ease;
-            border-left: 4px solid #e2e8f0;
-        }
-        .task-card.completed {
-            opacity: 0.7;
-            border-left-color: #48bb78;
-        }
-        .task-card.overdue {
-            border-left-color: #f56565;
-        }
-        .task-card.due-soon {
-            border-left-color: #ed8936;
-        }
-        .file-preview {
-            max-width: 100px;
-            max-height: 100px;
-            object-fit: cover;
-        }
-        .drag-over {
-            border: 2px dashed #3b82f6;
-            background-color: #eff6ff;
-        }
+        .task-item { transition: all 0.3s ease; }
+        .task-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .editable { cursor: pointer; border: 2px solid transparent; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; }
+        .editable:hover { background-color: #f3f4f6; border-color: #e5e7eb; }
+        .editing { background-color: #fef3c7; border-color: #f59e0b; }
+        .file-drop-zone { border: 2px dashed #d1d5db; transition: all 0.3s; }
+        .file-drop-zone.dragover { border-color: #3b82f6; background-color: #eff6ff; }
+        .calendar-button { background: linear-gradient(45deg, #3b82f6, #1d4ed8); }
+        .calendar-button:hover { background: linear-gradient(45deg, #1d4ed8, #1e40af); }
+        .pulse-animation { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .notification { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 16px; border-radius: 8px; color: white; font-weight: bold; opacity: 0; transform: translateX(100%); transition: all 0.3s; }
+        .notification.show { opacity: 1; transform: translateX(0); }
+        .notification.success { background-color: #10b981; }
+        .notification.error { background-color: #ef4444; }
+        .notification.info { background-color: #3b82f6; }
+        .tooltip { position: relative; }
+        .tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+        .tooltip-text { visibility: hidden; opacity: 0; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background-color: #374151; color: white; text-align: center; padding: 5px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; transition: opacity 0.3s; z-index: 1000; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .loading { display: none; }
+        .loading.show { display: inline-block; animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
-            .mobile-optimized {
-                padding: 0.5rem;
-            }
-            .mobile-text {
-                font-size: 0.875rem;
-            }
-        }
-        .notification-permission {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 1000;
-        }
-        .calendar-colors {
-            background: linear-gradient(90deg, #3b82f6 33%, #f59e0b 33% 66%, #10b981 66%);
-            height: 4px;
+            .mobile-stack { flex-direction: column; }
+            .mobile-full { width: 100%; margin-bottom: 8px; }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- Notification Permission Banner -->
-    <div id="notificationBanner" class="notification-permission bg-blue-600 text-white p-4 rounded-lg shadow-lg hidden">
-        <div class="flex items-center justify-between">
-            <div>
-                <i class="fas fa-bell mr-2"></i>
-                通知を有効にしてタスクの期日をお知らせします
-            </div>
-            <div>
-                <button id="enableNotifications" class="bg-white text-blue-600 px-3 py-1 rounded mr-2 text-sm">有効にする</button>
-                <button id="dismissNotifications" class="text-white opacity-75 hover:opacity-100">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-    </div>
+<body class="bg-gray-50">
+    <!-- Notification Area -->
+    <div id="notification" class="notification"></div>
 
-    <div class="container mx-auto px-4 py-8 max-w-6xl">
-        <!-- Header -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-gray-800 mb-2">
-                        <i class="fas fa-tasks text-blue-600 mr-3"></i>タスク管理アプリ
-                    </h1>
-                    <p class="text-gray-600">株式会社アイワエンジニアリング様専用</p>
-                    <div class="calendar-colors mt-2"></div>
-                    <p class="text-xs text-gray-500 mt-1">
-                        <span class="inline-block w-3 h-3 bg-blue-500 mr-1"></span>発注日
-                        <span class="inline-block w-3 h-3 bg-yellow-500 mr-1 ml-3"></span>中間確認日
-                        <span class="inline-block w-3 h-3 bg-green-500 mr-1 ml-3"></span>完了日
-                    </p>
-                </div>
-                <div class="mt-4 md:mt-0">
-                    <button id="addTaskBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md transition duration-200">
-                        <i class="fas fa-plus mr-2"></i>新しいタスクを追加
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <h1 class="text-2xl font-bold text-gray-900 mb-4 sm:mb-0">
+                    <i class="fas fa-tasks text-blue-600 mr-2"></i>
+                    タスク管理アプリ
+                </h1>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showAddTaskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新しいタスク
+                    </button>
+                    <button onclick="showImportModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-upload mr-2"></i>インポート
+                    </button>
+                    <button onclick="exportTasks()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>エクスポート
                     </button>
                 </div>
             </div>
         </div>
+    </header>
 
-        <!-- Controls -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div class="flex flex-col md:flex-row gap-4">
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- Calendar Integration Guide -->
+        <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded-r-lg">
+            <div class="flex items-center mb-2">
+                <i class="fas fa-calendar-alt text-blue-600 mr-2"></i>
+                <h3 class="text-lg font-semibold text-blue-900">カレンダー連携機能</h3>
+            </div>
+            <div class="text-blue-800 text-sm">
+                <p class="mb-2">各タスクの <span class="font-semibold">📅 カレンダーに追加</span> ボタンでGoogleカレンダーに直接追加できます。</p>
+                <p class="mb-2"><span class="font-semibold">📥 .icsダウンロード</span> で他のカレンダーアプリにも対応。</p>
+                <p>期日別の個別追加も可能です。</p>
+            </div>
+        </div>
+
+        <!-- Filter and Search -->
+        <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div class="flex flex-col sm:flex-row gap-4">
                 <div class="flex-1">
                     <input type="text" id="searchInput" placeholder="タスクを検索..." 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
-                <div class="flex gap-2">
-                    <select id="filterSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        <option value="all">すべて</option>
-                        <option value="incomplete">未完了</option>
-                        <option value="completed">完了済み</option>
-                        <option value="overdue">期限切れ</option>
-                    </select>
-                    <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-download mr-1"></i>エクスポート
-                    </button>
-                    <button id="importBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
-                        <i class="fas fa-upload mr-1"></i>インポート
-                    </button>
-                    <input type="file" id="importFile" accept=".json" class="hidden">
-                </div>
+                <select id="filterSelect" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="all">すべて</option>
+                    <option value="pending">未完了</option>
+                    <option value="completed">完了済み</option>
+                </select>
             </div>
         </div>
 
-        <!-- Task List -->
-        <div id="taskList" class="space-y-4">
-            <!-- Tasks will be dynamically inserted here -->
+        <!-- Tasks List -->
+        <div id="tasksList" class="space-y-4">
+            <!-- Tasks will be rendered here -->
         </div>
 
         <!-- Empty State -->
         <div id="emptyState" class="text-center py-12 hidden">
-            <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+            <i class="fas fa-clipboard-list text-gray-300 text-6xl mb-4"></i>
             <h3 class="text-xl font-semibold text-gray-600 mb-2">タスクがありません</h3>
-            <p class="text-gray-500 mb-6">新しいタスクを追加して始めましょう</p>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg" onclick="document.getElementById('addTaskBtn').click()">
+            <p class="text-gray-500 mb-4">新しいタスクを追加して始めましょう</p>
+            <button onclick="showAddTaskModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
                 <i class="fas fa-plus mr-2"></i>最初のタスクを追加
             </button>
         </div>
-    </div>
+    </main>
 
-    <!-- Task Modal -->
-    <div id="taskModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 id="modalTitle" class="text-2xl font-bold text-gray-800">新しいタスク</h2>
-                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
-                        <i class="fas fa-times text-xl"></i>
+    <!-- Add/Edit Task Modal -->
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalTitle" class="text-xl font-semibold">新しいタスク</h2>
+                <button onclick="closeTaskModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="taskForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">タスク名 *</label>
+                    <input type="text" id="taskName" required 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">記入日</label>
+                        <input type="date" id="entryDate" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">発注日（依頼日）</label>
+                        <input type="datetime-local" id="orderDate" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">中間確認日</label>
+                        <input type="datetime-local" id="checkDate" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">完了日</label>
+                        <input type="datetime-local" id="completeDate" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">備考欄</label>
+                    <textarea id="remarks" rows="3" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ファイル添付</label>
+                    <div id="fileDropZone" class="file-drop-zone border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-600">ファイルをドラッグ&ドロップ、またはクリックして選択</p>
+                        <p class="text-sm text-gray-500 mt-1">PDF, Excel, Word, 画像ファイル対応</p>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif" class="hidden">
+                    <div id="filesList" class="mt-3 space-y-2">
+                        <!-- Attached files will be shown here -->
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-save mr-2"></i>保存
+                    </button>
+                    <button type="button" onclick="closeTaskModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-times mr-2"></i>キャンセル
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
 
-                <form id="taskForm" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">タスク名</label>
-                        <input type="text" id="taskName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">記入日</label>
-                            <input type="date" id="entryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">発注日（依頼日）</label>
-                            <input type="datetime-local" id="orderDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">中間確認日</label>
-                            <input type="datetime-local" id="checkDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">完了日</label>
-                            <input type="datetime-local" id="completionDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">備考欄</label>
-                        <textarea id="notes" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
-                    </div>
-
-                    <!-- File Attachment -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">ファイル添付</label>
-                        <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 transition-colors">
-                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
-                            <p class="text-gray-600 mb-2">ファイルをドラッグ&ドロップするか、クリックして選択</p>
-                            <input type="file" id="fileInput" multiple class="hidden">
-                            <button type="button" id="selectFilesBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-                                ファイルを選択
-                            </button>
-                        </div>
-                        <div id="fileList" class="mt-4 space-y-2"></div>
-                    </div>
-
-                    <div class="flex flex-col md:flex-row gap-3 pt-4">
-                        <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium">
-                            <i class="fas fa-save mr-2"></i>保存
-                        </button>
-                        <button type="button" id="cancelBtn" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-3 rounded-lg font-medium">
-                            キャンセル
-                        </button>
-                    </div>
-                </form>
+    <!-- Import Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">データをインポート</h2>
+                <button onclick="closeImportModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <h3 class="font-semibold text-blue-900 mb-2">対応ファイル形式</h3>
+                    <ul class="text-sm text-blue-800 space-y-1">
+                        <li><i class="fas fa-check mr-2"></i>.json ファイル</li>
+                        <li><i class="fas fa-check mr-2"></i>.json.txt ファイル</li>
+                        <li><i class="fas fa-check mr-2"></i>.txt ファイル</li>
+                    </ul>
+                </div>
+                <div id="importDropZone" class="file-drop-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50">
+                    <i class="fas fa-file-import text-4xl text-gray-400 mb-3"></i>
+                    <p class="text-lg text-gray-700 mb-2">バックアップファイルを選択</p>
+                    <p class="text-gray-500">ドラッグ&ドロップ、またはクリックして選択</p>
+                </div>
+                <input type="file" id="importFileInput" accept=".json,.txt" class="hidden">
+                <div class="flex gap-3">
+                    <button id="importButton" onclick="importTasks()" disabled 
+                            class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-upload mr-2"></i>インポート実行
+                    </button>
+                    <button onclick="closeImportModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg transition-colors">
+                        キャンセル
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
-        class TaskManager {
-            constructor() {
-                this.tasks = [];
-                this.currentTaskId = null;
-                this.notificationTimers = new Map();
-                this.init();
-            }
+        // Global variables
+        let tasks = [];
+        let currentEditingTask = null;
+        let currentFiles = [];
+        let importData = null;
 
-            async init() {
-                await this.loadTasks();
-                this.setupEventListeners();
-                this.requestNotificationPermission();
-                this.renderTasks();
-                this.setupNotificationTimers();
-            }
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTasks();
+            setupEventListeners();
+            requestNotificationPermission();
+        });
 
-            setupEventListeners() {
-                // Add task button
-                document.getElementById('addTaskBtn').addEventListener('click', () => this.openModal());
-                
-                // Modal controls
-                document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
-                document.getElementById('cancelBtn').addEventListener('click', () => this.closeModal());
-                document.getElementById('taskForm').addEventListener('submit', (e) => this.handleFormSubmit(e));
+        // Event listeners setup
+        function setupEventListeners() {
+            // Search functionality
+            document.getElementById('searchInput').addEventListener('input', filterTasks);
+            document.getElementById('filterSelect').addEventListener('change', filterTasks);
 
-                // Search and filter
-                document.getElementById('searchInput').addEventListener('input', () => this.renderTasks());
-                document.getElementById('filterSelect').addEventListener('change', () => this.renderTasks());
+            // File drop zones
+            setupFileDropZone('fileDropZone', 'fileInput', handleTaskFiles);
+            setupFileDropZone('importDropZone', 'importFileInput', handleImportFile);
 
-                // Import/Export
-                document.getElementById('exportBtn').addEventListener('click', () => this.exportTasks());
-                document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
-                document.getElementById('importFile').addEventListener('change', (e) => this.importTasks(e));
+            // Task form
+            document.getElementById('taskForm').addEventListener('submit', saveTask);
 
-                // File handling
-                this.setupFileHandling();
+            // Global click handler for inline editing
+            document.addEventListener('click', handleGlobalClick);
+        }
 
-                // Notification permission
-                document.getElementById('enableNotifications').addEventListener('click', () => this.requestNotificationPermission());
-                document.getElementById('dismissNotifications').addEventListener('click', () => {
-                    document.getElementById('notificationBanner').classList.add('hidden');
-                });
+        // Setup file drop zone
+        function setupFileDropZone(dropZoneId, inputId, handler) {
+            const dropZone = document.getElementById(dropZoneId);
+            const fileInput = document.getElementById(inputId);
 
-                // Close modal when clicking outside
-                document.getElementById('taskModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'taskModal') this.closeModal();
-                });
+            dropZone.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handler);
 
-                // Set default entry date
-                document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-            }
-
-            setupFileHandling() {
-                const dropZone = document.getElementById('dropZone');
-                const fileInput = document.getElementById('fileInput');
-                const selectFilesBtn = document.getElementById('selectFilesBtn');
-
-                selectFilesBtn.addEventListener('click', () => fileInput.click());
-
-                dropZone.addEventListener('click', () => fileInput.click());
-
-                dropZone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    dropZone.classList.add('drag-over');
-                });
-
-                dropZone.addEventListener('dragleave', () => {
-                    dropZone.classList.remove('drag-over');
-                });
-
-                dropZone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    dropZone.classList.remove('drag-over');
-                    this.handleFiles(e.dataTransfer.files);
-                });
-
-                fileInput.addEventListener('change', (e) => {
-                    this.handleFiles(e.target.files);
-                });
-            }
-
-            async handleFiles(files) {
-                for (let file of files) {
-                    if (file.size > 10 * 1024 * 1024) {
-                        alert(`${file.name} は10MBを超えています。`);
-                        continue;
-                    }
-
-                    const fileData = await this.readFileAsBase64(file);
-                    this.addFileToList({
-                        name: file.name,
-                        size: file.size,
-                        type: file.type,
-                        data: fileData
-                    });
-                }
-            }
-
-            readFileAsBase64(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-            }
-
-            addFileToList(file) {
-                const fileList = document.getElementById('fileList');
-                const fileDiv = document.createElement('div');
-                fileDiv.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg';
-                
-                const fileInfo = document.createElement('div');
-                fileInfo.className = 'flex items-center space-x-3';
-                
-                if (file.type.startsWith('image/')) {
-                    const img = document.createElement('img');
-                    img.src = file.data;
-                    img.className = 'file-preview rounded';
-                    fileInfo.appendChild(img);
-                }
-                
-                const textInfo = document.createElement('div');
-                textInfo.innerHTML = `
-                    <div class="font-medium text-gray-900">${file.name}</div>
-                    <div class="text-sm text-gray-500">${this.formatFileSize(file.size)}</div>
-                `;
-                fileInfo.appendChild(textInfo);
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'text-red-600 hover:text-red-800';
-                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-                removeBtn.addEventListener('click', () => fileDiv.remove());
-                
-                fileDiv.appendChild(fileInfo);
-                fileDiv.appendChild(removeBtn);
-                fileList.appendChild(fileDiv);
-
-                // Store file reference
-                fileDiv.fileData = file;
-            }
-
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-
-            openModal(task = null) {
-                this.currentTaskId = task ? task.id : null;
-                document.getElementById('modalTitle').textContent = task ? 'タスクを編集' : '新しいタスク';
-                
-                if (task) {
-                    document.getElementById('taskName').value = task.name;
-                    document.getElementById('entryDate').value = task.entryDate || '';
-                    document.getElementById('orderDate').value = task.orderDate || '';
-                    document.getElementById('checkDate').value = task.checkDate || '';
-                    document.getElementById('completionDate').value = task.completionDate || '';
-                    document.getElementById('notes').value = task.notes || '';
-                    
-                    // Load attached files
-                    const fileList = document.getElementById('fileList');
-                    fileList.innerHTML = '';
-                    if (task.files) {
-                        task.files.forEach(file => this.addFileToList(file));
-                    }
-                } else {
-                    document.getElementById('taskForm').reset();
-                    document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-                    document.getElementById('fileList').innerHTML = '';
-                }
-                
-                document.getElementById('taskModal').classList.remove('hidden');
-            }
-
-            closeModal() {
-                document.getElementById('taskModal').classList.add('hidden');
-                this.currentTaskId = null;
-            }
-
-            async handleFormSubmit(e) {
+            dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
-                
-                const formData = new FormData(e.target);
-                const fileListDiv = document.getElementById('fileList');
-                const attachedFiles = Array.from(fileListDiv.children).map(div => div.fileData).filter(Boolean);
-                
-                const task = {
-                    id: this.currentTaskId || Date.now().toString(),
-                    name: document.getElementById('taskName').value,
-                    entryDate: document.getElementById('entryDate').value,
-                    orderDate: document.getElementById('orderDate').value,
-                    checkDate: document.getElementById('checkDate').value,
-                    completionDate: document.getElementById('completionDate').value,
-                    notes: document.getElementById('notes').value,
-                    files: attachedFiles,
-                    completed: false,
-                    createdAt: this.currentTaskId ? this.tasks.find(t => t.id === this.currentTaskId).createdAt : new Date().toISOString()
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                fileInput.files = e.dataTransfer.files;
+                handler({ target: { files: e.dataTransfer.files } });
+            });
+        }
+
+        // Handle task files
+        function handleTaskFiles(event) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => addFileToTask(file));
+        }
+
+        // Add file to task
+        function addFileToTask(file) {
+            if (file.size > 10 * 1024 * 1024) {
+                showNotification('ファイルサイズが大きすぎます（10MB以下）', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fileObj = {
+                    id: Date.now() + Math.random(),
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    data: e.target.result
                 };
+                currentFiles.push(fileObj);
+                renderFilesList();
+            };
+            reader.readAsDataURL(file);
+        }
 
-                if (this.currentTaskId) {
-                    const index = this.tasks.findIndex(t => t.id === this.currentTaskId);
-                    task.completed = this.tasks[index].completed;
-                    this.tasks[index] = task;
-                } else {
-                    this.tasks.push(task);
-                }
+        // Render files list
+        function renderFilesList() {
+            const filesList = document.getElementById('filesList');
+            filesList.innerHTML = currentFiles.map(file => `
+                <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-file text-blue-600 mr-2"></i>
+                        <div>
+                            <div class="font-medium text-sm">${file.name}</div>
+                            <div class="text-xs text-gray-500">${formatFileSize(file.size)}</div>
+                        </div>
+                    </div>
+                    <button onclick="removeFile(${file.id})" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
 
-                await this.saveTasks();
-                this.renderTasks();
-                this.setupNotificationTimers();
-                this.closeModal();
+        // Remove file
+        function removeFile(fileId) {
+            currentFiles = currentFiles.filter(f => f.id !== fileId);
+            renderFilesList();
+        }
+
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Show add task modal
+        function showAddTaskModal() {
+            currentEditingTask = null;
+            currentFiles = [];
+            document.getElementById('modalTitle').textContent = '新しいタスク';
+            document.getElementById('taskForm').reset();
+            document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+            renderFilesList();
+            document.getElementById('taskModal').classList.add('show');
+        }
+
+        // Show edit task modal
+        function showEditTaskModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            currentEditingTask = task;
+            currentFiles = [...(task.files || [])];
+            document.getElementById('modalTitle').textContent = 'タスクを編集';
+            
+            document.getElementById('taskName').value = task.name;
+            document.getElementById('entryDate').value = task.entryDate;
+            document.getElementById('orderDate').value = task.orderDate;
+            document.getElementById('checkDate').value = task.checkDate;
+            document.getElementById('completeDate').value = task.completeDate;
+            document.getElementById('remarks').value = task.remarks;
+            
+            renderFilesList();
+            document.getElementById('taskModal').classList.add('show');
+        }
+
+        // Close task modal
+        function closeTaskModal() {
+            document.getElementById('taskModal').classList.remove('show');
+            currentEditingTask = null;
+            currentFiles = [];
+        }
+
+        // Save task
+        function saveTask(event) {
+            event.preventDefault();
+            
+            const taskData = {
+                name: document.getElementById('taskName').value,
+                entryDate: document.getElementById('entryDate').value,
+                orderDate: document.getElementById('orderDate').value,
+                checkDate: document.getElementById('checkDate').value,
+                completeDate: document.getElementById('completeDate').value,
+                remarks: document.getElementById('remarks').value,
+                files: [...currentFiles]
+            };
+
+            if (currentEditingTask) {
+                // Update existing task
+                Object.assign(currentEditingTask, taskData);
+                showNotification('タスクを更新しました', 'success');
+            } else {
+                // Create new task
+                const newTask = {
+                    id: Date.now(),
+                    ...taskData,
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                };
+                tasks.push(newTask);
+                showNotification('新しいタスクを追加しました', 'success');
             }
 
-            toggleTask(taskId) {
-                const task = this.tasks.find(t => t.id === taskId);
+            saveTasks();
+            renderTasks();
+            closeTaskModal();
+        }
+
+        // Handle global click for inline editing
+        function handleGlobalClick(event) {
+            const editable = event.target.closest('.editable');
+            if (editable) {
+                startInlineEdit(editable);
+                event.stopPropagation();
+            }
+        }
+
+        // Start inline edit
+        function startInlineEdit(element) {
+            if (element.classList.contains('editing')) return;
+
+            const originalValue = element.textContent.trim();
+            const field = element.dataset.field;
+            const taskId = parseInt(element.dataset.taskId);
+
+            element.classList.add('editing');
+            
+            let input;
+            if (field === 'remarks') {
+                input = document.createElement('textarea');
+                input.rows = 2;
+            } else if (field.includes('Date')) {
+                input = document.createElement('input');
+                input.type = field === 'entryDate' ? 'date' : 'datetime-local';
+            } else {
+                input = document.createElement('input');
+                input.type = 'text';
+            }
+
+            input.value = originalValue;
+            input.className = 'w-full px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500';
+            
+            element.innerHTML = '';
+            element.appendChild(input);
+            input.focus();
+            input.select();
+
+            const saveEdit = () => {
+                const task = tasks.find(t => t.id === taskId);
                 if (task) {
-                    task.completed = !task.completed;
-                    this.saveTasks();
-                    this.renderTasks();
+                    task[field] = input.value;
+                    saveTasks();
                 }
+                element.classList.remove('editing');
+                element.textContent = input.value || originalValue;
+                showNotification('更新しました', 'success');
+            };
+
+            const cancelEdit = () => {
+                element.classList.remove('editing');
+                element.textContent = originalValue;
+            };
+
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    cancelEdit();
+                }
+            });
+        }
+
+        // Render tasks
+        function renderTasks() {
+            const tasksList = document.getElementById('tasksList');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (tasks.length === 0) {
+                tasksList.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
             }
 
-            duplicateTask(taskId) {
-                const task = this.tasks.find(t => t.id === taskId);
-                if (task) {
-                    const newTask = {
-                        ...task,
-                        id: Date.now().toString(),
-                        name: task.name + ' (コピー)',
-                        completed: false,
-                        createdAt: new Date().toISOString()
-                    };
-                    this.tasks.push(newTask);
-                    this.saveTasks();
-                    this.renderTasks();
-                }
-            }
-
-            deleteTask(taskId) {
-                if (confirm('このタスクを削除しますか？')) {
-                    this.tasks = this.tasks.filter(t => t.id !== taskId);
-                    this.saveTasks();
-                    this.renderTasks();
+            emptyState.classList.add('hidden');
+            
+            tasksList.innerHTML = tasks.map(task => `
+                <div class="task-item bg-white rounded-lg shadow-sm border p-6 ${task.completed ? 'opacity-75' : ''}">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center flex-1">
+                            <input type="checkbox" ${task.completed ? 'checked' : ''} 
+                                   onchange="toggleTask(${task.id})"
+                                   class="w-5 h-5 text-blue-600 mr-3 rounded focus:ring-blue-500">
+                            <h3 class="editable text-lg font-semibold ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}" 
+                                data-field="name" data-task-id="${task.id}">
+                                ${task.name}
+                            </h3>
+                        </div>
+                        <div class="flex gap-2 ml-4">
+                            <button onclick="duplicateTask(${task.id})" class="tooltip text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-copy"></i>
+                                <span class="tooltip-text">複製</span>
+                            </button>
+                            <button onclick="showEditTaskModal(${task.id})" class="tooltip text-green-600 hover:text-green-800">
+                                <i class="fas fa-edit"></i>
+                                <span class="tooltip-text">編集</span>
+                            </button>
+                            <button onclick="deleteTask(${task.id})" class="tooltip text-red-600 hover:text-red-800">
+                                <i class="fas fa-trash"></i>
+                                <span class="tooltip-text">削除</span>
+                            </button>
+                        </div>
+                    </div>
                     
-                    // Clear notification timer
-                    if (this.notificationTimers.has(taskId)) {
-                        clearTimeout(this.notificationTimers.get(taskId));
-                        this.notificationTimers.delete(taskId);
-                    }
-                }
-            }
-
-            renderTasks() {
-                const taskList = document.getElementById('taskList');
-                const emptyState = document.getElementById('emptyState');
-                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-                const filter = document.getElementById('filterSelect').value;
-
-                let filteredTasks = this.tasks.filter(task => {
-                    const matchesSearch = task.name.toLowerCase().includes(searchTerm) ||
-                                        task.notes?.toLowerCase().includes(searchTerm);
-                    
-                    let matchesFilter = true;
-                    if (filter === 'completed') matchesFilter = task.completed;
-                    else if (filter === 'incomplete') matchesFilter = !task.completed;
-                    else if (filter === 'overdue') matchesFilter = !task.completed && this.isOverdue(task);
-
-                    return matchesSearch && matchesFilter;
-                });
-
-                if (filteredTasks.length === 0) {
-                    taskList.innerHTML = '';
-                    emptyState.classList.remove('hidden');
-                    return;
-                }
-
-                emptyState.classList.add('hidden');
-                
-                // Sort tasks by creation date (newest first)
-                filteredTasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                taskList.innerHTML = filteredTasks.map(task => this.renderTaskCard(task)).join('');
-            }
-
-            renderTaskCard(task) {
-                const isOverdue = this.isOverdue(task);
-                const isDueSoon = this.isDueSoon(task);
-                let cardClass = 'task-card';
-                
-                if (task.completed) cardClass += ' completed';
-                else if (isOverdue) cardClass += ' overdue';
-                else if (isDueSoon) cardClass += ' due-soon';
-
-                const files = task.files || [];
-                const fileCount = files.length;
-
-                return `
-                    <div class="${cardClass} bg-white rounded-lg shadow-md p-6 mobile-optimized">
-                        <div class="flex flex-col md:flex-row md:items-start md:justify-between">
-                            <div class="flex-1">
-                                <div class="flex items-center mb-3">
-                                    <input type="checkbox" ${task.completed ? 'checked' : ''} 
-                                           onchange="taskManager.toggleTask('${task.id}')"
-                                           class="mr-3 h-5 w-5 text-blue-600 rounded">
-                                    <h3 class="text-lg font-semibold text-gray-800 ${task.completed ? 'line-through' : ''}">${task.name}</h3>
-                                </div>
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-600 mb-3">
-                                    ${task.orderDate ? `
-                                        <div class="flex items-center">
-                                            <span class="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                                            発注: ${this.formatDateTime(task.orderDate)}
-                                        </div>
-                                    ` : ''}
-                                    ${task.checkDate ? `
-                                        <div class="flex items-center">
-                                            <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
-                                            中間: ${this.formatDateTime(task.checkDate)}
-                                        </div>
-                                    ` : ''}
-                                    ${task.completionDate ? `
-                                        <div class="flex items-center">
-                                            <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                                            完了: ${this.formatDateTime(task.completionDate)}
-                                        </div>
-                                    ` : ''}
-                                </div>
-
-                                ${task.notes ? `
-                                    <p class="text-gray-700 mb-3">${task.notes}</p>
-                                ` : ''}
-
-                                ${fileCount > 0 ? `
-                                    <div class="flex items-center text-sm text-gray-500 mb-3">
-                                        <i class="fas fa-paperclip mr-1"></i>
-                                        ${fileCount}個のファイル添付
-                                    </div>
-                                ` : ''}
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">記入日</label>
+                            <div class="editable text-sm text-gray-900" data-field="entryDate" data-task-id="${task.id}">
+                                ${formatDate(task.entryDate)}
                             </div>
-
-                            <div class="flex flex-col md:flex-row gap-2 mt-4 md:mt-0 md:ml-4">
-                                ${this.renderCalendarButtons(task)}
-                                <button onclick="taskManager.openModal(${JSON.stringify(task).replace(/"/g, '&quot;')})" 
-                                        class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm">
-                                    <i class="fas fa-edit mr-1"></i>編集
-                                </button>
-                                <button onclick="taskManager.duplicateTask('${task.id}')" 
-                                        class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm">
-                                    <i class="fas fa-copy mr-1"></i>複製
-                                </button>
-                                <button onclick="taskManager.deleteTask('${task.id}')" 
-                                        class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded text-sm">
-                                    <i class="fas fa-trash mr-1"></i>削除
-                                </button>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">発注日</label>
+                            <div class="editable text-sm text-gray-900" data-field="orderDate" data-task-id="${task.id}">
+                                ${formatDateTime(task.orderDate)}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">中間確認日</label>
+                            <div class="editable text-sm text-gray-900" data-field="checkDate" data-task-id="${task.id}">
+                                ${formatDateTime(task.checkDate)}
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-500 mb-1">完了日</label>
+                            <div class="editable text-sm text-gray-900" data-field="completeDate" data-task-id="${task.id}">
+                                ${formatDateTime(task.completeDate)}
                             </div>
                         </div>
                     </div>
-                `;
-            }
-
-            renderCalendarButtons(task) {
-                let buttons = '';
-                
-                if (task.orderDate) {
-                    buttons += `
-                        <button onclick="taskManager.addToCalendar('${task.id}', 'order')" 
-                                class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm">
-                            <i class="fas fa-calendar-plus mr-1"></i>発注日
-                        </button>
-                    `;
-                }
-                
-                if (task.checkDate) {
-                    buttons += `
-                        <button onclick="taskManager.addToCalendar('${task.id}', 'check')" 
-                                class="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-2 rounded text-sm">
-                            <i class="fas fa-calendar-plus mr-1"></i>中間確認
-                        </button>
-                    `;
-                }
-                
-                if (task.completionDate) {
-                    buttons += `
-                        <button onclick="taskManager.addToCalendar('${task.id}', 'completion')" 
-                                class="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded text-sm">
-                            <i class="fas fa-calendar-plus mr-1"></i>完了日
-                        </button>
-                    `;
-                }
-
-                buttons += `
-                    <button onclick="taskManager.downloadICS('${task.id}')" 
-                            class="bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-2 rounded text-sm">
-                        <i class="fas fa-download mr-1"></i>.ics
-                    </button>
-                `;
-
-                return buttons;
-            }
-
-            addToCalendar(taskId, type) {
-                const task = this.tasks.find(t => t.id === taskId);
-                if (!task) return;
-
-                let date, title, description;
-                
-                switch (type) {
-                    case 'order':
-                        date = task.orderDate;
-                        title = `【発注日】${task.name}`;
-                        description = `発注日: ${this.formatDateTime(task.orderDate)}`;
-                        break;
-                    case 'check':
-                        date = task.checkDate;
-                        title = `【中間確認】${task.name}`;
-                        description = `中間確認日: ${this.formatDateTime(task.checkDate)}`;
-                        break;
-                    case 'completion':
-                        date = task.completionDate;
-                        title = `【完了予定】${task.name}`;
-                        description = `完了予定日: ${this.formatDateTime(task.completionDate)}`;
-                        break;
-                }
-
-                if (!date) return;
-
-                const startDate = new Date(date);
-                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour later
-
-                const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${this.formatDateForGoogle(startDate)}/${this.formatDateForGoogle(endDate)}&details=${encodeURIComponent(description + (task.notes ? '\n\n備考: ' + task.notes : ''))}`;
-
-                window.open(googleUrl, '_blank');
-            }
-
-            formatDateForGoogle(date) {
-                return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-            }
-
-            downloadICS(taskId) {
-                const task = this.tasks.find(t => t.id === taskId);
-                if (!task) return;
-
-                let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//TaskManager//TaskManager//EN\n';
-
-                const events = [];
-                if (task.orderDate) events.push({ date: task.orderDate, title: `【発注日】${task.name}`, type: '発注日' });
-                if (task.checkDate) events.push({ date: task.checkDate, title: `【中間確認】${task.name}`, type: '中間確認日' });
-                if (task.completionDate) events.push({ date: task.completionDate, title: `【完了予定】${task.name}`, type: '完了予定日' });
-
-                events.forEach((event, index) => {
-                    const startDate = new Date(event.date);
-                    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
                     
-                    icsContent += `BEGIN:VEVENT\n`;
-                    icsContent += `UID:${task.id}-${index}@taskmanager.com\n`;
-                    icsContent += `DTSTART:${this.formatDateForICS(startDate)}\n`;
-                    icsContent += `DTEND:${this.formatDateForICS(endDate)}\n`;
-                    icsContent += `SUMMARY:${event.title}\n`;
-                    icsContent += `DESCRIPTION:${event.type}: ${this.formatDateTime(event.date)}${task.notes ? '\\n\\n備考: ' + task.notes : ''}\n`;
-                    icsContent += `END:VEVENT\n`;
-                });
+                    ${task.remarks ? `
+                        <div class="mb-4">
+                            <label class="block text-xs font-medium text-gray-500 mb-1">備考</label>
+                            <div class="editable text-sm text-gray-900 p-2 bg-gray-50 rounded" data-field="remarks" data-task-id="${task.id}">
+                                ${task.remarks}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    ${task.files && task.files.length > 0 ? `
+                        <div class="mb-4">
+                            <label class="block text-xs font-medium text-gray-500 mb-2">添付ファイル</label>
+                            <div class="flex flex-wrap gap-2">
+                                ${task.files.map(file => `
+                                    <div class="flex items-center bg-blue-50 px-3 py-1 rounded-full text-sm">
+                                        <i class="fas fa-file text-blue-600 mr-2"></i>
+                                        <span class="text-blue-800">${file.name}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="addAllToCalendar(${task.id})" class="calendar-button text-white px-4 py-2 rounded-lg text-sm font-medium hover:shadow-lg transition-all">
+                            <i class="fas fa-calendar-plus mr-2"></i>📅 全てカレンダーに追加
+                        </button>
+                        <button onclick="downloadICS(${task.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-download mr-2"></i>📥 .icsダウンロード
+                        </button>
+                        ${task.orderDate ? `
+                            <button onclick="addToCalendar(${task.id}, 'order')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                                📅 発注日を追加
+                            </button>
+                        ` : ''}
+                        ${task.checkDate ? `
+                            <button onclick="addToCalendar(${task.id}, 'check')" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                                📅 確認日を追加
+                            </button>
+                        ` : ''}
+                        ${task.completeDate ? `
+                            <button onclick="addToCalendar(${task.id}, 'complete')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                                📅 完了日を追加
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
 
-                icsContent += 'END:VCALENDAR';
+        // Toggle task completion
+        function toggleTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks();
+                renderTasks();
+                showNotification(task.completed ? 'タスクを完了にしました' : 'タスクを未完了に戻しました', 'success');
+            }
+        }
 
-                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${task.name}_calendar.ics`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+        // Duplicate task
+        function duplicateTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                const newTask = {
+                    ...task,
+                    id: Date.now(),
+                    name: task.name + ' (コピー)',
+                    completed: false,
+                    createdAt: new Date().toISOString()
+                };
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks();
+                showNotification('タスクを複製しました', 'success');
+            }
+        }
+
+        // Delete task
+        function deleteTask(taskId) {
+            if (confirm('このタスクを削除しますか？')) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                saveTasks();
+                renderTasks();
+                showNotification('タスクを削除しました', 'success');
+            }
+        }
+
+        // Calendar integration functions
+        function addAllToCalendar(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            if (task.orderDate) addToCalendar(taskId, 'order');
+            if (task.checkDate) addToCalendar(taskId, 'check');
+            if (task.completeDate) addToCalendar(taskId, 'complete');
+            
+            showNotification('カレンダーイベントを作成しました', 'success');
+        }
+
+        function addToCalendar(taskId, type) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            let date, title, description;
+            switch (type) {
+                case 'order':
+                    date = task.orderDate;
+                    title = `【発注】${task.name}`;
+                    description = `発注日: ${formatDateTime(task.orderDate)}`;
+                    break;
+                case 'check':
+                    date = task.checkDate;
+                    title = `【中間確認】${task.name}`;
+                    description = `中間確認日: ${formatDateTime(task.checkDate)}`;
+                    break;
+                case 'complete':
+                    date = task.completeDate;
+                    title = `【完了予定】${task.name}`;
+                    description = `完了予定日: ${formatDateTime(task.completeDate)}`;
+                    break;
             }
 
-            formatDateForICS(date) {
-                return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+            if (!date) return;
+
+            const startDate = new Date(date);
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour later
+
+            const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${formatGoogleCalendarDate(startDate)}/${formatGoogleCalendarDate(endDate)}&details=${encodeURIComponent(description + (task.remarks ? '\n\n備考: ' + task.remarks : ''))}`;
+
+            window.open(googleCalendarUrl, '_blank');
+        }
+
+        function downloadICS(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            let icsContent = 'BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Task Manager//Task Manager//EN\n';
+
+            if (task.orderDate) {
+                icsContent += createICSEvent(task, 'order');
+            }
+            if (task.checkDate) {
+                icsContent += createICSEvent(task, 'check');
+            }
+            if (task.completeDate) {
+                icsContent += createICSEvent(task, 'complete');
             }
 
-            formatDateTime(dateTimeString) {
-                if (!dateTimeString) return '';
-                const date = new Date(dateTimeString);
-                return date.toLocaleDateString('ja-JP') + ' ' + date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            icsContent += 'END:VCALENDAR';
+
+            const blob = new Blob([icsContent], { type: 'text/calendar' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${task.name}.ics`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            showNotification('.icsファイルをダウンロードしました', 'success');
+        }
+
+        function createICSEvent(task, type) {
+            let date, title, description;
+            switch (type) {
+                case 'order':
+                    date = task.orderDate;
+                    title = `【発注】${task.name}`;
+                    description = `発注日: ${formatDateTime(task.orderDate)}`;
+                    break;
+                case 'check':
+                    date = task.checkDate;
+                    title = `【中間確認】${task.name}`;
+                    description = `中間確認日: ${formatDateTime(task.checkDate)}`;
+                    break;
+                case 'complete':
+                    date = task.completeDate;
+                    title = `【完了予定】${task.name}`;
+                    description = `完了予定日: ${formatDateTime(task.completeDate)}`;
+                    break;
             }
 
-            isOverdue(task) {
-                if (task.completed) return false;
-                const now = new Date();
-                return (task.orderDate && new Date(task.orderDate) < now) ||
-                       (task.checkDate && new Date(task.checkDate) < now) ||
-                       (task.completionDate && new Date(task.completionDate) < now);
-            }
+            const startDate = new Date(date);
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
 
-            isDueSoon(task) {
-                if (task.completed) return false;
-                const now = new Date();
-                const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                return (task.orderDate && new Date(task.orderDate) <= tomorrow) ||
-                       (task.checkDate && new Date(task.checkDate) <= tomorrow) ||
-                       (task.completionDate && new Date(task.completionDate) <= tomorrow);
-            }
+            return `BEGIN:VEVENT
+DTSTART:${formatICSDate(startDate)}
+DTEND:${formatICSDate(endDate)}
+SUMMARY:${title}
+DESCRIPTION:${description}${task.remarks ? '\\n\\n備考: ' + task.remarks : ''}
+UID:${Date.now()}-${Math.random()}@taskmanager
+END:VEVENT
+`;
+        }
 
-            async exportTasks() {
+        // Date formatting functions
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            return new Date(dateString).toLocaleDateString('ja-JP');
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            return new Date(dateString).toLocaleString('ja-JP');
+        }
+
+        function formatGoogleCalendarDate(date) {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        }
+
+        function formatICSDate(date) {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        }
+
+        // Filter tasks
+        function filterTasks() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filter = document.getElementById('filterSelect').value;
+            
+            let filteredTasks = tasks;
+            
+            if (searchTerm) {
+                filteredTasks = filteredTasks.filter(task => 
+                    task.name.toLowerCase().includes(searchTerm) ||
+                    task.remarks.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (filter !== 'all') {
+                filteredTasks = filteredTasks.filter(task => 
+                    filter === 'completed' ? task.completed : !task.completed
+                );
+            }
+            
+            // Temporarily replace tasks array for rendering
+            const originalTasks = tasks;
+            tasks = filteredTasks;
+            renderTasks();
+            tasks = originalTasks;
+        }
+
+        // Import/Export functions
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('show');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.remove('show');
+            importData = null;
+            document.getElementById('importButton').disabled = true;
+        }
+
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
                 try {
-                    const dataStr = JSON.stringify(this.tasks, null, 2);
-                    const dataBlob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+                    let content = e.target.result;
                     
-                    const url = URL.createObjectURL(dataBlob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `tasks_${new Date().toISOString().split('T')[0]}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    alert('タスクデータをエクスポートしました');
-                } catch (error) {
-                    console.error('Export error:', error);
-                    alert('エクスポートに失敗しました');
-                }
-            }
-
-            async importTasks(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                try {
-                    const text = await this.readFileAsText(file);
-                    const importedTasks = JSON.parse(text);
-                    
-                    if (Array.isArray(importedTasks)) {
-                        if (confirm('既存のタスクデータを置き換えますか？')) {
-                            this.tasks = importedTasks;
-                            await this.saveTasks();
-                            this.renderTasks();
-                            this.setupNotificationTimers();
-                            alert('タスクデータをインポートしました');
+                    // Handle different file extensions
+                    if (file.name.endsWith('.json.txt') || file.name.endsWith('.txt')) {
+                        // Try to extract JSON from text file
+                        if (content.includes('{') && content.includes('}')) {
+                            const startIndex = content.indexOf('{');
+                            const lastIndex = content.lastIndexOf('}');
+                            content = content.substring(startIndex, lastIndex + 1);
                         }
+                    }
+
+                    const data = JSON.parse(content);
+                    
+                    if (data.tasks && Array.isArray(data.tasks)) {
+                        importData = data;
+                        document.getElementById('importButton').disabled = false;
+                        showNotification(`${data.tasks.length}個のタスクが見つかりました`, 'info');
                     } else {
-                        throw new Error('Invalid file format');
+                        throw new Error('無効なデータ形式です');
                     }
                 } catch (error) {
                     console.error('Import error:', error);
-                    alert('ファイル形式が正しくありません');
+                    showNotification('ファイル形式が正しくありません。JSONファイルを選択してください。', 'error');
+                    importData = null;
+                    document.getElementById('importButton').disabled = true;
                 }
+            };
+            
+            reader.onerror = function() {
+                showNotification('ファイルの読み込みに失敗しました', 'error');
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function importTasks() {
+            if (!importData) return;
+
+            if (confirm(`${importData.tasks.length}個のタスクをインポートしますか？既存のデータは保持されます。`)) {
+                // Merge with existing tasks
+                importData.tasks.forEach(task => {
+                    task.id = Date.now() + Math.random(); // Generate new ID
+                });
                 
-                // Reset file input
-                e.target.value = '';
+                tasks = [...tasks, ...importData.tasks];
+                saveTasks();
+                renderTasks();
+                closeImportModal();
+                showNotification(`${importData.tasks.length}個のタスクをインポートしました`, 'success');
             }
+        }
 
-            readFileAsText(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsText(file, 'utf-8');
-                });
-            }
+        function exportTasks() {
+            const dataStr = JSON.stringify({ tasks }, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tasks_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showNotification('タスクデータをエクスポートしました', 'success');
+        }
 
-            async loadTasks() {
+        // Local storage functions
+        function loadTasks() {
+            const savedTasks = localStorage.getItem('taskManagerTasks');
+            if (savedTasks) {
                 try {
-                    const stored = localStorage.getItem('tasks');
-                    if (stored) {
-                        this.tasks = JSON.parse(stored);
-                    }
+                    tasks = JSON.parse(savedTasks);
                 } catch (error) {
-                    console.error('Failed to load tasks:', error);
-                    this.tasks = [];
+                    console.error('Error loading tasks:', error);
+                    tasks = [];
                 }
             }
+            renderTasks();
+        }
 
-            async saveTasks() {
-                try {
-                    localStorage.setItem('tasks', JSON.stringify(this.tasks));
-                } catch (error) {
-                    console.error('Failed to save tasks:', error);
-                }
+        function saveTasks() {
+            localStorage.setItem('taskManagerTasks', JSON.stringify(tasks));
+        }
+
+        // Notification functions
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
             }
+        }
 
-            requestNotificationPermission() {
-                if ('Notification' in window) {
-                    if (Notification.permission === 'default') {
-                        document.getElementById('notificationBanner').classList.remove('hidden');
-                    }
-                    
-                    Notification.requestPermission().then(permission => {
-                        if (permission === 'granted') {
-                            document.getElementById('notificationBanner').classList.add('hidden');
-                            this.setupNotificationTimers();
-                        }
-                    });
-                }
-            }
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
 
-            setupNotificationTimers() {
-                // Clear existing timers
-                this.notificationTimers.forEach(timer => clearTimeout(timer));
-                this.notificationTimers.clear();
-
-                if (Notification.permission !== 'granted') return;
-
-                this.tasks.forEach(task => {
-                    if (task.completed) return;
-
-                    const dates = [
-                        { date: task.orderDate, type: '発注日' },
-                        { date: task.checkDate, type: '中間確認日' },
-                        { date: task.completionDate, type: '完了日' }
-                    ].filter(d => d.date);
-
-                    dates.forEach(({ date, type }) => {
-                        const targetDate = new Date(date);
-                        const now = new Date();
-                        
-                        // Check if we should show notification (within 24 hours and not passed)
-                        const timeDiff = targetDate.getTime() - now.getTime();
-                        const hoursDiff = timeDiff / (1000 * 60 * 60);
-                        
-                        if (hoursDiff > 0 && hoursDiff <= 24) {
-                            const delay = Math.max(0, timeDiff - (60 * 60 * 1000)); // 1 hour before
+        // Check for due tasks (for notifications)
+        function checkDueTasks() {
+            const now = new Date();
+            tasks.forEach(task => {
+                if (!task.completed) {
+                    [task.orderDate, task.checkDate, task.completeDate].forEach(date => {
+                        if (date) {
+                            const taskDate = new Date(date);
+                            const timeDiff = taskDate.getTime() - now.getTime();
+                            const hoursDiff = timeDiff / (1000 * 3600);
                             
-                            const timer = setTimeout(() => {
-                                new Notification('タスクリマインダー', {
-                                    body: `${task.name} の${type}が近づいています\n期日: ${this.formatDateTime(date)}`,
-                                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IiMzMzNmZiI+PHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNCIgZmlsbD0iIzMzM2ZmIiAvPjwvc3ZnPg=='
+                            if (hoursDiff > 0 && hoursDiff <= 1 && 'Notification' in window && Notification.permission === 'granted') {
+                                new Notification('タスクの期日が近づいています', {
+                                    body: `${task.name} - ${formatDateTime(date)}`,
+                                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
                                 });
-                            }, delay);
-                            
-                            this.notificationTimers.set(`${task.id}-${type}`, timer);
+                            }
                         }
                     });
-                });
-            }
+                }
+            });
         }
 
-        // Initialize the task manager
-        const taskManager = new TaskManager();
-
-        // Register Service Worker for PWA
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDSEVfTkFNRSA9ICd0YXNrLW1hbmFnZXItdjEnOw0KY29uc3QgdXJsc1RvQ2FjaGUgPSBbJy8nXTsNCg0Kc2VsZi5hZGRFdmVudExpc3RlbmVyKCdpbnN0YWxsJywgZXZlbnQgPT4gew0KICA0dmVudC53YWl0VW50aWwoY2FjaGVzLm9wZW4oQ0FDSEVfTkFNRSkudGhlbihjYWNoZSA9PiBjYWNoZS5hZGRBbGwodXJsc1RvQ2FjaGUpKSk7DQp9KTsNCg0Kc2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIGV2ZW50ID0+IHsNCiAgZXZlbnQucmVzcG9uZFdpdGgoY2FjaGVzLm1hdGNoKGV2ZW50LnJlcXVlc3QpLnRoZW4ocmVzcG9uc2UgPT4gcmVzcG9uc2UgfHwgZmV0Y2goZXZlbnQucmVxdWVzdCkpKTsNCn0pOw==');
-        }
+        // Check for due tasks every minute
+        setInterval(checkDueTasks, 60000);
     </script>
 </body>
 </html>
