@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>タスク管理アプリ - ファイル添付・複製機能付き</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        .drag-over {
+            border: 2px dashed #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+        
+        .file-preview {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+        }
+        
+        .task-card {
+            transition: all 0.3s ease;
+        }
+        
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .completed {
+            opacity: 0.7;
+            background-color: #f3f4f6;
+        }
+        
+        .notification-permission {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        @media (max-width: 768px) {
+            .task-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <!-- ヘッダー -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                <i class="fas fa-tasks text-blue-500 mr-3"></i>
+                タスク管理アプリ
+            </h1>
+            <p class="text-gray-600">ファイル添付・通知機能付き高機能タスク管理システム</p>
+        </header>
+
+        <!-- 通知許可要求 -->
+        <div id="notificationAlert" class="notification-permission text-white p-4 rounded-lg mb-6 hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-bell mr-3 text-xl"></i>
+                    <span>通知機能を有効にして、タスクのリマインダーを受け取りましょう</span>
+                </div>
+                <button id="enableNotifications" class="bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 transition">
+                    通知を有効にする
+                </button>
+            </div>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <i class="fas fa-list-ul text-3xl text-blue-500 mb-2"></i>
+                <div class="text-2xl font-bold text-gray-800" id="totalTasks">0</div>
+                <div class="text-gray-600">総タスク数</div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <i class="fas fa-clock text-3xl text-yellow-500 mb-2"></i>
+                <div class="text-2xl font-bold text-gray-800" id="pendingTasks">0</div>
+                <div class="text-gray-600">未完了</div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <i class="fas fa-check-circle text-3xl text-green-500 mb-2"></i>
+                <div class="text-2xl font-bold text-gray-800" id="completedTasks">0</div>
+                <div class="text-gray-600">完了済み</div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md text-center">
+                <i class="fas fa-exclamation-triangle text-3xl text-red-500 mb-2"></i>
+                <div class="text-2xl font-bold text-gray-800" id="overdueTasks">0</div>
+                <div class="text-gray-600">期限切れ</div>
+            </div>
+        </div>
+
+        <!-- コントロールパネル -->
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap gap-4">
+                    <button id="addTaskBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition">
+                        <i class="fas fa-plus mr-2"></i>新しいタスクを追加
+                    </button>
+                    <button id="clearCompletedBtn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition">
+                        <i class="fas fa-trash mr-2"></i>完了済みを削除
+                    </button>
+                </div>
+                <div class="flex flex-wrap gap-4">
+                    <select id="filterTasks" class="border border-gray-300 rounded-lg px-4 py-2">
+                        <option value="all">すべて表示</option>
+                        <option value="pending">未完了のみ</option>
+                        <option value="completed">完了済みのみ</option>
+                        <option value="overdue">期限切れのみ</option>
+                    </select>
+                    <input type="text" id="searchTasks" placeholder="タスクを検索..." class="border border-gray-300 rounded-lg px-4 py-2 w-64">
+                </div>
+            </div>
+        </div>
+
+        <!-- タスクフォーム -->
+        <div id="taskForm" class="bg-white p-6 rounded-lg shadow-md mb-8 hidden">
+            <h3 class="text-xl font-bold mb-4" id="formTitle">新しいタスクを追加</h3>
+            <form id="taskFormElement" class="task-form grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">タスク名 *</label>
+                    <input type="text" id="taskName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">記入日</label>
+                    <input type="date" id="entryDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">発注日（依頼日）</label>
+                    <input type="datetime-local" id="orderDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">中間確認日</label>
+                    <input type="datetime-local" id="checkDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">完了日</label>
+                    <input type="datetime-local" id="completeDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">備考欄</label>
+                    <textarea id="remarks" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                
+                <!-- ファイル添付エリア -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ファイル添付</label>
+                    <div id="fileDropArea" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition">
+                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600 mb-2">ファイルをドラッグ&ドロップするか、クリックして選択</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt" class="hidden">
+                        <button type="button" id="selectFilesBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                            ファイルを選択
+                        </button>
+                    </div>
+                    <div id="fileList" class="mt-4"></div>
+                </div>
+                
+                <div class="md:col-span-2 flex gap-4">
+                    <button type="submit" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
+                        <i class="fas fa-save mr-2"></i>保存
+                    </button>
+                    <button type="button" id="cancelBtn" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition">
+                        <i class="fas fa-times mr-2"></i>キャンセル
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- タスク一覧 -->
+        <div id="taskList" class="space-y-4">
+            <!-- タスクカードがここに動的に追加されます -->
+        </div>
+
+        <!-- データ管理 -->
+        <div class="bg-white p-6 rounded-lg shadow-md mt-8">
+            <h3 class="text-xl font-bold mb-4">データ管理</h3>
+            <div class="flex flex-wrap gap-4">
+                <button id="exportBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">
+                    <i class="fas fa-download mr-2"></i>データをエクスポート
+                </button>
+                <div class="relative">
+                    <input type="file" id="importFile" accept=".json" class="hidden">
+                    <button id="importBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition">
+                        <i class="fas fa-upload mr-2"></i>データをインポート
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ファイルプレビューモーダル -->
+    <div id="filePreviewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg max-w-4xl max-h-full overflow-auto">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="previewFileName" class="text-lg font-bold"></h3>
+                <button id="closePreviewBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="previewContent" class="p-4">
+                <!-- プレビュー内容がここに表示されます -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class TaskManager {
+            constructor() {
+                this.tasks = this.loadTasks();
+                this.currentEditId = null;
+                this.attachedFiles = [];
+                this.notificationPermission = false;
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.requestNotificationPermission();
+                this.renderTasks();
+                this.updateStats();
+                this.setupNotificationChecker();
+                this.setupFileHandling();
+            }
+
+            setupEventListeners() {
+                document.getElementById('addTaskBtn').addEventListener('click', () => this.showTaskForm());
+                document.getElementById('taskFormElement').addEventListener('submit', (e) => this.handleTaskSubmit(e));
+                document.getElementById('cancelBtn').addEventListener('click', () => this.hideTaskForm());
+                document.getElementById('clearCompletedBtn').addEventListener('click', () => this.clearCompletedTasks());
+                document.getElementById('filterTasks').addEventListener('change', () => this.renderTasks());
+                document.getElementById('searchTasks').addEventListener('input', () => this.renderTasks());
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+                document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+                document.getElementById('importFile').addEventListener('change', (e) => this.importData(e));
+                document.getElementById('enableNotifications').addEventListener('click', () => this.requestNotificationPermission());
+                document.getElementById('closePreviewBtn').addEventListener('click', () => this.closeFilePreview());
+            }
+
+            setupFileHandling() {
+                const dropArea = document.getElementById('fileDropArea');
+                const fileInput = document.getElementById('fileInput');
+                const selectBtn = document.getElementById('selectFilesBtn');
+
+                selectBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', (e) => this.handleFiles(e.target.files));
+
+                dropArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.add('drag-over');
+                });
+
+                dropArea.addEventListener('dragleave', () => {
+                    dropArea.classList.remove('drag-over');
+                });
+
+                dropArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropArea.classList.remove('drag-over');
+                    this.handleFiles(e.dataTransfer.files);
+                });
+            }
+
+            async handleFiles(files) {
+                for (const file of Array.from(files)) {
+                    if (file.size > 10 * 1024 * 1024) { // 10MB制限
+                        alert(`ファイル "${file.name}" は10MBを超えているため添付できません。`);
+                        continue;
+                    }
+
+                    try {
+                        const fileData = await this.readFileAsBase64(file);
+                        const fileInfo = {
+                            id: Date.now() + Math.random(),
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: fileData
+                        };
+                        this.attachedFiles.push(fileInfo);
+                        this.renderFileList();
+                    } catch (error) {
+                        console.error('ファイル読み込みエラー:', error);
+                        alert(`ファイル "${file.name}" の読み込みに失敗しました。`);
+                    }
+                }
+            }
+
+            readFileAsBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            renderFileList() {
+                const fileList = document.getElementById('fileList');
+                if (this.attachedFiles.length === 0) {
+                    fileList.innerHTML = '';
+                    return;
+                }
+
+                fileList.innerHTML = `
+                    <h4 class="font-medium text-gray-700 mb-2">添付ファイル (${this.attachedFiles.length}件)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        ${this.attachedFiles.map(file => `
+                            <div class="flex items-center justify-between bg-gray-50 p-3 rounded border">
+                                <div class="flex items-center">
+                                    <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
+                                    <div>
+                                        <div class="font-medium text-sm">${file.name}</div>
+                                        <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
+                                    </div>
+                                </div>
+                                <div class="flex gap-1">
+                                    ${this.canPreview(file.type) ? `
+                                        <button type="button" onclick="taskManager.previewFile('${file.id}')" class="text-blue-500 hover:text-blue-700 p-1">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    ` : ''}
+                                    <button type="button" onclick="taskManager.removeFile('${file.id}')" class="text-red-500 hover:text-red-700 p-1">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            getFileIcon(mimeType) {
+                if (mimeType.startsWith('image/')) return 'fa-image';
+                if (mimeType.includes('pdf')) return 'fa-file-pdf';
+                if (mimeType.includes('word')) return 'fa-file-word';
+                if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-file-excel';
+                if (mimeType.includes('powerpoint')) return 'fa-file-powerpoint';
+                return 'fa-file';
+            }
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+
+            canPreview(mimeType) {
+                return mimeType.startsWith('image/') || mimeType.includes('pdf');
+            }
+
+            previewFile(fileId) {
+                const file = this.attachedFiles.find(f => f.id == fileId);
+                if (!file) return;
+
+                const modal = document.getElementById('filePreviewModal');
+                const fileName = document.getElementById('previewFileName');
+                const content = document.getElementById('previewContent');
+
+                fileName.textContent = file.name;
+
+                if (file.type.startsWith('image/')) {
+                    content.innerHTML = `<img src="${file.data}" alt="${file.name}" class="max-w-full h-auto">`;
+                } else if (file.type.includes('pdf')) {
+                    content.innerHTML = `<iframe src="${file.data}" width="100%" height="600px" style="border: none;"></iframe>`;
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            closeFilePreview() {
+                document.getElementById('filePreviewModal').classList.add('hidden');
+            }
+
+            removeFile(fileId) {
+                this.attachedFiles = this.attachedFiles.filter(f => f.id != fileId);
+                this.renderFileList();
+            }
+
+            async requestNotificationPermission() {
+                if ('Notification' in window) {
+                    const permission = await Notification.requestPermission();
+                    this.notificationPermission = permission === 'granted';
+                    
+                    if (this.notificationPermission) {
+                        document.getElementById('notificationAlert').classList.add('hidden');
+                    } else {
+                        document.getElementById('notificationAlert').classList.remove('hidden');
+                    }
+                }
+            }
+
+            showTaskForm(task = null) {
+                document.getElementById('taskForm').classList.remove('hidden');
+                
+                if (task) {
+                    this.currentEditId = task.id;
+                    document.getElementById('formTitle').textContent = 'タスクを編集';
+                    this.fillForm(task);
+                } else {
+                    this.currentEditId = null;
+                    document.getElementById('formTitle').textContent = '新しいタスクを追加';
+                    this.clearForm();
+                }
+                
+                document.getElementById('taskForm').scrollIntoView({ behavior: 'smooth' });
+            }
+
+            fillForm(task) {
+                document.getElementById('taskName').value = task.name || '';
+                document.getElementById('entryDate').value = task.entryDate || '';
+                document.getElementById('orderDate').value = task.orderDate || '';
+                document.getElementById('checkDate').value = task.checkDate || '';
+                document.getElementById('completeDate').value = task.completeDate || '';
+                document.getElementById('remarks').value = task.remarks || '';
+                this.attachedFiles = task.files || [];
+                this.renderFileList();
+            }
+
+            clearForm() {
+                document.getElementById('taskFormElement').reset();
+                document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+                this.attachedFiles = [];
+                this.renderFileList();
+            }
+
+            hideTaskForm() {
+                document.getElementById('taskForm').classList.add('hidden');
+                this.clearForm();
+                this.currentEditId = null;
+            }
+
+            handleTaskSubmit(e) {
+                e.preventDefault();
+                
+                const taskData = {
+                    id: this.currentEditId || Date.now(),
+                    name: document.getElementById('taskName').value,
+                    entryDate: document.getElementById('entryDate').value,
+                    orderDate: document.getElementById('orderDate').value,
+                    checkDate: document.getElementById('checkDate').value,
+                    completeDate: document.getElementById('completeDate').value,
+                    remarks: document.getElementById('remarks').value,
+                    completed: false,
+                    files: [...this.attachedFiles],
+                    createdAt: this.currentEditId ? this.tasks.find(t => t.id === this.currentEditId)?.createdAt : new Date().toISOString()
+                };
+
+                if (this.currentEditId) {
+                    const index = this.tasks.findIndex(t => t.id === this.currentEditId);
+                    if (index !== -1) {
+                        taskData.completed = this.tasks[index].completed;
+                        this.tasks[index] = taskData;
+                    }
+                } else {
+                    this.tasks.push(taskData);
+                }
+
+                this.saveTasks();
+                this.renderTasks();
+                this.updateStats();
+                this.hideTaskForm();
+                
+                this.showNotification('タスクが保存されました', 'success');
+            }
+
+            toggleTask(id) {
+                const task = this.tasks.find(t => t.id === id);
+                if (task) {
+                    task.completed = !task.completed;
+                    this.saveTasks();
+                    this.renderTasks();
+                    this.updateStats();
+                    
+                    const message = task.completed ? 'タスクが完了しました！' : 'タスクが未完了に戻されました';
+                    this.showNotification(message, task.completed ? 'success' : 'info');
+                }
+            }
+
+            duplicateTask(id) {
+                const task = this.tasks.find(t => t.id === id);
+                if (task) {
+                    const duplicatedTask = {
+                        ...task,
+                        id: Date.now(),
+                        name: task.name + ' (コピー)',
+                        completed: false,
+                        createdAt: new Date().toISOString(),
+                        files: [...(task.files || [])]
+                    };
+                    this.tasks.push(duplicatedTask);
+                    this.saveTasks();
+                    this.renderTasks();
+                    this.updateStats();
+                    this.showNotification('タスクが複製されました', 'success');
+                }
+            }
+
+            deleteTask(id) {
+                if (confirm('このタスクを削除してもよろしいですか？')) {
+                    this.tasks = this.tasks.filter(t => t.id !== id);
+                    this.saveTasks();
+                    this.renderTasks();
+                    this.updateStats();
+                    this.showNotification('タスクが削除されました', 'info');
+                }
+            }
+
+            clearCompletedTasks() {
+                const completedCount = this.tasks.filter(t => t.completed).length;
+                if (completedCount === 0) {
+                    this.showNotification('削除する完了済みタスクがありません', 'info');
+                    return;
+                }
+                
+                if (confirm(`${completedCount}件の完了済みタスクを削除してもよろしいですか？`)) {
+                    this.tasks = this.tasks.filter(t => !t.completed);
+                    this.saveTasks();
+                    this.renderTasks();
+                    this.updateStats();
+                    this.showNotification(`${completedCount}件の完了済みタスクを削除しました`, 'success');
+                }
+            }
+
+            renderTasks() {
+                const filter = document.getElementById('filterTasks').value;
+                const search = document.getElementById('searchTasks').value.toLowerCase();
+                
+                let filteredTasks = this.tasks.filter(task => {
+                    const matchesSearch = task.name.toLowerCase().includes(search) || 
+                                        (task.remarks && task.remarks.toLowerCase().includes(search));
+                    
+                    switch (filter) {
+                        case 'pending':
+                            return !task.completed && matchesSearch;
+                        case 'completed':
+                            return task.completed && matchesSearch;
+                        case 'overdue':
+                            return !task.completed && this.isOverdue(task) && matchesSearch;
+                        default:
+                            return matchesSearch;
+                    }
+                });
+
+                // 並び順: 未完了 > 完了済み、作成日時降順
+                filteredTasks.sort((a, b) => {
+                    if (a.completed !== b.completed) {
+                        return a.completed - b.completed;
+                    }
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                });
+
+                const taskList = document.getElementById('taskList');
+                
+                if (filteredTasks.length === 0) {
+                    taskList.innerHTML = `
+                        <div class="text-center py-12">
+                            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-xl text-gray-500">タスクがありません</p>
+                            <p class="text-gray-400">新しいタスクを追加してください</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                taskList.innerHTML = filteredTasks.map(task => this.renderTaskCard(task)).join('');
+            }
+
+            renderTaskCard(task) {
+                const isOverdue = this.isOverdue(task);
+                const hasFiles = task.files && task.files.length > 0;
+                
+                return `
+                    <div class="task-card bg-white p-6 rounded-lg shadow-md border-l-4 ${task.completed ? 'completed border-green-400' : isOverdue ? 'border-red-400' : 'border-blue-400'}">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-start">
+                                <label class="flex items-center mr-4">
+                                    <input type="checkbox" ${task.completed ? 'checked' : ''} 
+                                           onchange="taskManager.toggleTask(${task.id})"
+                                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                </label>
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold ${task.completed ? 'line-through text-gray-500' : 'text-gray-800'} mb-2">
+                                        ${task.name}
+                                        ${isOverdue && !task.completed ? '<i class="fas fa-exclamation-triangle text-red-500 ml-2"></i>' : ''}
+                                    </h3>
+                                    ${hasFiles ? `
+                                        <div class="mb-2">
+                                            <i class="fas fa-paperclip text-blue-500 mr-1"></i>
+                                            <span class="text-sm text-blue-600">${task.files.length}件のファイル</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="taskManager.duplicateTask(${task.id})" 
+                                        class="text-blue-500 hover:text-blue-700 p-2" title="複製">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                                <button onclick="taskManager.showTaskForm(${JSON.stringify(task).replace(/"/g, '&quot;')})" 
+                                        class="text-green-500 hover:text-green-700 p-2" title="編集">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="taskManager.deleteTask(${task.id})" 
+                                        class="text-red-500 hover:text-red-700 p-2" title="削除">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                            ${task.entryDate ? `
+                                <div>
+                                    <span class="font-medium text-gray-600">記入日:</span>
+                                    <div class="text-gray-800">${this.formatDate(task.entryDate)}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${task.orderDate ? `
+                                <div>
+                                    <span class="font-medium text-gray-600">発注日:</span>
+                                    <div class="text-gray-800">${this.formatDateTime(task.orderDate)}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${task.checkDate ? `
+                                <div>
+                                    <span class="font-medium text-gray-600">中間確認日:</span>
+                                    <div class="text-gray-800">${this.formatDateTime(task.checkDate)}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${task.completeDate ? `
+                                <div>
+                                    <span class="font-medium text-gray-600">完了日:</span>
+                                    <div class="text-gray-800">${this.formatDateTime(task.completeDate)}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        ${task.remarks ? `
+                            <div class="mt-4 p-3 bg-gray-50 rounded">
+                                <span class="font-medium text-gray-600">備考:</span>
+                                <div class="text-gray-800 mt-1">${task.remarks}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${hasFiles ? `
+                            <div class="mt-4">
+                                <span class="font-medium text-gray-600 mb-2 block">添付ファイル:</span>
+                                <div class="flex flex-wrap gap-2">
+                                    ${task.files.map(file => `
+                                        <div class="flex items-center bg-blue-50 px-3 py-1 rounded text-sm">
+                                            <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
+                                            <span class="mr-2">${file.name}</span>
+                                            ${this.canPreview(file.type) ? `
+                                                <button onclick="taskManager.previewTaskFile(${task.id}, '${file.id}')" 
+                                                        class="text-blue-500 hover:text-blue-700" title="プレビュー">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            previewTaskFile(taskId, fileId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                if (!task || !task.files) return;
+                
+                const file = task.files.find(f => f.id == fileId);
+                if (!file) return;
+
+                const modal = document.getElementById('filePreviewModal');
+                const fileName = document.getElementById('previewFileName');
+                const content = document.getElementById('previewContent');
+
+                fileName.textContent = file.name;
+
+                if (file.type.startsWith('image/')) {
+                    content.innerHTML = `<img src="${file.data}" alt="${file.name}" class="max-w-full h-auto">`;
+                } else if (file.type.includes('pdf')) {
+                    content.innerHTML = `<iframe src="${file.data}" width="100%" height="600px" style="border: none;"></iframe>`;
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            isOverdue(task) {
+                if (task.completed) return false;
+                
+                const now = new Date();
+                const dates = [task.orderDate, task.checkDate, task.completeDate].filter(Boolean);
+                
+                return dates.some(date => new Date(date) < now);
+            }
+
+            formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('ja-JP');
+            }
+
+            formatDateTime(dateTimeString) {
+                if (!dateTimeString) return '';
+                const date = new Date(dateTimeString);
+                return date.toLocaleDateString('ja-JP') + ' ' + date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            updateStats() {
+                const total = this.tasks.length;
+                const completed = this.tasks.filter(t => t.completed).length;
+                const pending = total - completed;
+                const overdue = this.tasks.filter(t => this.isOverdue(t)).length;
+
+                document.getElementById('totalTasks').textContent = total;
+                document.getElementById('completedTasks').textContent = completed;
+                document.getElementById('pendingTasks').textContent = pending;
+                document.getElementById('overdueTasks').textContent = overdue;
+            }
+
+            setupNotificationChecker() {
+                setInterval(() => {
+                    if (!this.notificationPermission) return;
+                    
+                    const now = new Date();
+                    const oneHour = 60 * 60 * 1000;
+                    const thirtyMinutes = 30 * 60 * 1000;
+
+                    this.tasks.forEach(task => {
+                        if (task.completed) return;
+
+                        const dates = [
+                            { date: task.orderDate, label: '発注日' },
+                            { date: task.checkDate, label: '中間確認日' },
+                            { date: task.completeDate, label: '完了日' }
+                        ].filter(item => item.date);
+
+                        dates.forEach(({ date, label }) => {
+                            const taskDate = new Date(date);
+                            const timeDiff = taskDate - now;
+
+                            if (timeDiff > 0 && timeDiff <= oneHour && timeDiff > thirtyMinutes) {
+                                this.sendNotification(`【1時間前】${task.name} - ${label}`, 'リマインダー: タスクの期日が近づいています');
+                            } else if (timeDiff > 0 && timeDiff <= thirtyMinutes) {
+                                this.sendNotification(`【30分前】${task.name} - ${label}`, 'リマインダー: タスクの期日まで30分です');
+                            } else if (timeDiff <= 0 && timeDiff > -oneHour) {
+                                this.sendNotification(`【期日到来】${task.name} - ${label}`, '忘れていませんか？タスクの期日です');
+                            }
+                        });
+                    });
+                }, 60000); // 1分ごとにチェック
+            }
+
+            sendNotification(title, body) {
+                if (this.notificationPermission && 'Notification' in window) {
+                    new Notification(title, {
+                        body: body,
+                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233B82F6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
+                        requireInteraction: true
+                    });
+                }
+            }
+
+            showNotification(message, type = 'info') {
+                const notification = document.createElement('div');
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    info: 'bg-blue-500'
+                };
+                
+                notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform translate-x-full transition-transform duration-300`;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(0)';
+                }, 100);
+                
+                setTimeout(() => {
+                    notification.style.transform = 'translateX(full)';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 3000);
+            }
+
+            exportData() {
+                const data = {
+                    tasks: this.tasks,
+                    exportDate: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `tasks_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showNotification('データをエクスポートしました', 'success');
+            }
+
+            importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data.tasks && Array.isArray(data.tasks)) {
+                            if (confirm('現在のデータを置き換えてもよろしいですか？')) {
+                                this.tasks = data.tasks;
+                                this.saveTasks();
+                                this.renderTasks();
+                                this.updateStats();
+                                this.showNotification('データをインポートしました', 'success');
+                            }
+                        } else {
+                            throw new Error('Invalid file format');
+                        }
+                    } catch (error) {
+                        console.error('Import error:', error);
+                        this.showNotification('ファイル形式が正しくありません', 'error');
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+
+            loadTasks() {
+                try {
+                    const saved = localStorage.getItem('tasks');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (error) {
+                    console.error('データ読み込みエラー:', error);
+                    return [];
+                }
+            }
+
+            saveTasks() {
+                try {
+                    localStorage.setItem('tasks', JSON.stringify(this.tasks));
+                } catch (error) {
+                    console.error('データ保存エラー:', error);
+                    this.showNotification('データの保存に失敗しました。ストレージ容量をご確認ください。', 'error');
+                }
+            }
+        }
+
+        // アプリケーション初期化
+        const taskManager = new TaskManager();
+        
+        // グローバルスコープでアクセス可能にする
+        window.taskManager = taskManager;
+    </script>
+</body>
+</html>
