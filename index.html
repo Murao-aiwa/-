@@ -3,874 +3,1210 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>タスク管理アプリ - ファイル添付・複製機能付き</title>
+    <title>タスク管理アプリ - Googleカレンダー連携版</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoi44K/44K544Kv566h55CG44Ki44OX44Oq","short_name":"TaskApp","start_url":"./","display":"standalone","theme_color":"#3B82F6","background_color":"#FFFFFF","icons":[{"src":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==","sizes":"192x192","type":"image/png"}]}">
     <style>
-        .drag-over {
-            border: 2px dashed #3b82f6 !important;
-            background-color: #eff6ff !important;
-        }
-        
-        .file-preview {
-            max-width: 100px;
-            max-height: 100px;
-            object-fit: cover;
-        }
-        
         .task-card {
             transition: all 0.3s ease;
         }
-        
         .task-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        
-        .completed {
-            opacity: 0.7;
-            background-color: #f3f4f6;
+        .file-drop-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
         }
-        
+        .file-drop-zone.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
         .notification-permission {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
         }
-        
         @media (max-width: 768px) {
-            .task-form {
+            .task-grid {
                 grid-template-columns: 1fr;
             }
+            .mobile-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                z-index: 100;
+            }
+        }
+        .calendar-embed {
+            min-height: 400px;
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- ヘッダー -->
-        <header class="mb-8 text-center">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">
-                <i class="fas fa-tasks text-blue-500 mr-3"></i>
-                タスク管理アプリ
-            </h1>
-            <p class="text-gray-600">ファイル添付・通知機能付き高機能タスク管理システム</p>
-        </header>
-
-        <!-- 通知許可要求 -->
-        <div id="notificationAlert" class="notification-permission text-white p-4 rounded-lg mb-6 hidden">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <i class="fas fa-bell mr-3 text-xl"></i>
-                    <span>通知機能を有効にして、タスクのリマインダーを受け取りましょう</span>
-                </div>
-                <button id="enableNotifications" class="bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 transition">
-                    通知を有効にする
-                </button>
-            </div>
-        </div>
-
-        <!-- 統計情報 -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                <i class="fas fa-list-ul text-3xl text-blue-500 mb-2"></i>
-                <div class="text-2xl font-bold text-gray-800" id="totalTasks">0</div>
-                <div class="text-gray-600">総タスク数</div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                <i class="fas fa-clock text-3xl text-yellow-500 mb-2"></i>
-                <div class="text-2xl font-bold text-gray-800" id="pendingTasks">0</div>
-                <div class="text-gray-600">未完了</div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                <i class="fas fa-check-circle text-3xl text-green-500 mb-2"></i>
-                <div class="text-2xl font-bold text-gray-800" id="completedTasks">0</div>
-                <div class="text-gray-600">完了済み</div>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-md text-center">
-                <i class="fas fa-exclamation-triangle text-3xl text-red-500 mb-2"></i>
-                <div class="text-2xl font-bold text-gray-800" id="overdueTasks">0</div>
-                <div class="text-gray-600">期限切れ</div>
-            </div>
-        </div>
-
-        <!-- コントロールパネル -->
-        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex flex-wrap gap-4">
-                    <button id="addTaskBtn" class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition">
-                        <i class="fas fa-plus mr-2"></i>新しいタスクを追加
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">
+                    <i class="fas fa-tasks mr-2"></i>タスク管理アプリ
+                </h1>
+                <div class="flex items-center space-x-4">
+                    <button id="calendar-sync-btn" class="bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fab fa-google mr-2"></i>カレンダー連携
                     </button>
-                    <button id="clearCompletedBtn" class="bg-red-500 text-white px-6 py-2 rounded-lg hover:bg-red-600 transition">
-                        <i class="fas fa-trash mr-2"></i>完了済みを削除
+                    <button id="settings-btn" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-cog"></i>
                     </button>
                 </div>
-                <div class="flex flex-wrap gap-4">
-                    <select id="filterTasks" class="border border-gray-300 rounded-lg px-4 py-2">
-                        <option value="all">すべて表示</option>
-                        <option value="pending">未完了のみ</option>
-                        <option value="completed">完了済みのみ</option>
-                        <option value="overdue">期限切れのみ</option>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 pb-20 md:pb-8">
+        <!-- Control Panel -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex flex-wrap gap-2">
+                    <button id="add-task-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>新しいタスク
+                    </button>
+                    <button id="export-btn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>エクスポート
+                    </button>
+                    <label for="import-file" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors">
+                        <i class="fas fa-upload mr-2"></i>インポート
+                    </label>
+                    <input type="file" id="import-file" accept=".json" class="hidden">
+                </div>
+                <div class="flex gap-2">
+                    <select id="filter-select" class="border border-gray-300 rounded-lg px-3 py-2">
+                        <option value="all">すべて</option>
+                        <option value="pending">未完了</option>
+                        <option value="completed">完了済み</option>
                     </select>
-                    <input type="text" id="searchTasks" placeholder="タスクを検索..." class="border border-gray-300 rounded-lg px-4 py-2 w-64">
+                    <input type="text" id="search-input" placeholder="検索..." class="border border-gray-300 rounded-lg px-3 py-2">
                 </div>
             </div>
         </div>
 
-        <!-- タスクフォーム -->
-        <div id="taskForm" class="bg-white p-6 rounded-lg shadow-md mb-8 hidden">
-            <h3 class="text-xl font-bold mb-4" id="formTitle">新しいタスクを追加</h3>
-            <form id="taskFormElement" class="task-form grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">タスク名 *</label>
-                    <input type="text" id="taskName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">記入日</label>
-                    <input type="date" id="entryDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">発注日（依頼日）</label>
-                    <input type="datetime-local" id="orderDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">中間確認日</label>
-                    <input type="datetime-local" id="checkDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">完了日</label>
-                    <input type="datetime-local" id="completeDate" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">備考欄</label>
-                    <textarea id="remarks" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                </div>
-                
-                <!-- ファイル添付エリア -->
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ファイル添付</label>
-                    <div id="fileDropArea" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition">
-                        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-600 mb-2">ファイルをドラッグ&ドロップするか、クリックして選択</p>
-                        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.txt" class="hidden">
-                        <button type="button" id="selectFilesBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
-                            ファイルを選択
+        <!-- Calendar View -->
+        <div id="calendar-section" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
+            <h2 class="text-xl font-bold mb-4">
+                <i class="fas fa-calendar-alt mr-2"></i>カレンダービュー
+            </h2>
+            <div class="flex gap-2 mb-4">
+                <button id="month-view" class="bg-blue-500 text-white px-3 py-1 rounded">月</button>
+                <button id="week-view" class="bg-gray-300 px-3 py-1 rounded">週</button>
+                <button id="day-view" class="bg-gray-300 px-3 py-1 rounded">日</button>
+            </div>
+            <div id="calendar-container" class="calendar-embed border rounded-lg"></div>
+        </div>
+
+        <!-- Task List -->
+        <div class="task-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Tasks will be rendered here -->
+        </div>
+    </main>
+
+    <!-- Mobile Navigation -->
+    <nav class="mobile-nav md:hidden bg-white border-t border-gray-200 p-4">
+        <div class="flex justify-around">
+            <button id="mobile-add" class="flex flex-col items-center text-blue-500">
+                <i class="fas fa-plus text-xl"></i>
+                <span class="text-xs mt-1">追加</span>
+            </button>
+            <button id="mobile-calendar" class="flex flex-col items-center text-gray-400">
+                <i class="fas fa-calendar text-xl"></i>
+                <span class="text-xs mt-1">カレンダー</span>
+            </button>
+            <button id="mobile-sync" class="flex flex-col items-center text-gray-400">
+                <i class="fas fa-sync text-xl"></i>
+                <span class="text-xs mt-1">同期</span>
+            </button>
+            <button id="mobile-settings" class="flex flex-col items-center text-gray-400">
+                <i class="fas fa-cog text-xl"></i>
+                <span class="text-xs mt-1">設定</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 id="modal-title" class="text-xl font-bold">新しいタスク</h2>
+                        <button id="close-modal" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
-                    <div id="fileList" class="mt-4"></div>
-                </div>
-                
-                <div class="md:col-span-2 flex gap-4">
-                    <button type="submit" class="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition">
-                        <i class="fas fa-save mr-2"></i>保存
-                    </button>
-                    <button type="button" id="cancelBtn" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition">
-                        <i class="fas fa-times mr-2"></i>キャンセル
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- タスク一覧 -->
-        <div id="taskList" class="space-y-4">
-            <!-- タスクカードがここに動的に追加されます -->
-        </div>
-
-        <!-- データ管理 -->
-        <div class="bg-white p-6 rounded-lg shadow-md mt-8">
-            <h3 class="text-xl font-bold mb-4">データ管理</h3>
-            <div class="flex flex-wrap gap-4">
-                <button id="exportBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 transition">
-                    <i class="fas fa-download mr-2"></i>データをエクスポート
-                </button>
-                <div class="relative">
-                    <input type="file" id="importFile" accept=".json" class="hidden">
-                    <button id="importBtn" class="bg-indigo-500 text-white px-4 py-2 rounded hover:bg-indigo-600 transition">
-                        <i class="fas fa-upload mr-2"></i>データをインポート
-                    </button>
+                    
+                    <form id="task-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">タスク名 *</label>
+                            <input type="text" id="task-name" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">記入日</label>
+                                <input type="date" id="entry-date" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">発注日</label>
+                                <input type="datetime-local" id="order-date" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">中間確認日</label>
+                                <input type="datetime-local" id="check-date" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">完了日</label>
+                                <input type="datetime-local" id="completion-date" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">備考欄</label>
+                            <textarea id="notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2"></textarea>
+                        </div>
+                        
+                        <!-- File Attachment -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">ファイル添付</label>
+                            <div id="file-drop-zone" class="file-drop-zone border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600 mb-2">ファイルをドラッグ&ドロップ、またはクリックして選択</p>
+                                <input type="file" id="file-input" multiple class="hidden">
+                                <button type="button" id="select-files" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                                    ファイルを選択
+                                </button>
+                            </div>
+                            <div id="file-list" class="mt-4 space-y-2"></div>
+                        </div>
+                        
+                        <div class="flex justify-end gap-2 pt-4">
+                            <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                                キャンセル
+                            </button>
+                            <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                                保存
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ファイルプレビューモーダル -->
-    <div id="filePreviewModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg max-w-4xl max-h-full overflow-auto">
-            <div class="p-4 border-b flex justify-between items-center">
-                <h3 id="previewFileName" class="text-lg font-bold"></h3>
-                <button id="closePreviewBtn" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            <div id="previewContent" class="p-4">
-                <!-- プレビュー内容がここに表示されます -->
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">設定</h2>
+                        <button id="close-settings" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="notifications-enabled" class="mr-2">
+                                通知を有効にする
+                            </label>
+                        </div>
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="calendar-sync-enabled" class="mr-2">
+                                Googleカレンダー同期
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">通知タイミング</label>
+                            <select id="notification-timing" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                <option value="60">1時間前</option>
+                                <option value="30">30分前</option>
+                                <option value="15">15分前</option>
+                                <option value="0">当日</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button id="clear-data" class="w-full bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">
+                                すべてのデータを削除
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Google API Script -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
 
     <script>
-        class TaskManager {
-            constructor() {
-                this.tasks = this.loadTasks();
-                this.currentEditId = null;
-                this.attachedFiles = [];
-                this.notificationPermission = false;
-                this.init();
-            }
+        // App State
+        let tasks = [];
+        let currentTaskId = null;
+        let isGoogleCalendarConnected = false;
+        let gapi = null;
+        let googleAuth = null;
 
-            init() {
-                this.setupEventListeners();
-                this.requestNotificationPermission();
-                this.renderTasks();
-                this.updateStats();
-                this.setupNotificationChecker();
-                this.setupFileHandling();
-            }
+        // Google Calendar Configuration
+        const GOOGLE_CLIENT_ID = 'your-google-client-id'; // 実際のプロジェクトではClient IDを設定
+        const GOOGLE_API_KEY = 'your-google-api-key'; // 実際のプロジェクトではAPI Keyを設定
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/calendar';
 
-            setupEventListeners() {
-                document.getElementById('addTaskBtn').addEventListener('click', () => this.showTaskForm());
-                document.getElementById('taskFormElement').addEventListener('submit', (e) => this.handleTaskSubmit(e));
-                document.getElementById('cancelBtn').addEventListener('click', () => this.hideTaskForm());
-                document.getElementById('clearCompletedBtn').addEventListener('click', () => this.clearCompletedTasks());
-                document.getElementById('filterTasks').addEventListener('change', () => this.renderTasks());
-                document.getElementById('searchTasks').addEventListener('input', () => this.renderTasks());
-                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
-                document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
-                document.getElementById('importFile').addEventListener('change', (e) => this.importData(e));
-                document.getElementById('enableNotifications').addEventListener('click', () => this.requestNotificationPermission());
-                document.getElementById('closePreviewBtn').addEventListener('click', () => this.closeFilePreview());
-            }
+        // DOM Elements
+        const taskModal = document.getElementById('task-modal');
+        const settingsModal = document.getElementById('settings-modal');
+        const taskForm = document.getElementById('task-form');
+        const taskGrid = document.querySelector('.task-grid');
+        const fileDropZone = document.getElementById('file-drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileList = document.getElementById('file-list');
 
-            setupFileHandling() {
-                const dropArea = document.getElementById('fileDropArea');
-                const fileInput = document.getElementById('fileInput');
-                const selectBtn = document.getElementById('selectFilesBtn');
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTasks();
+            setupEventListeners();
+            setupServiceWorker();
+            requestNotificationPermission();
+            initializeGoogleAPI();
+            
+            // Set default entry date to today
+            document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+        });
 
-                selectBtn.addEventListener('click', () => fileInput.click());
-                fileInput.addEventListener('change', (e) => this.handleFiles(e.target.files));
-
-                dropArea.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    dropArea.classList.add('drag-over');
-                });
-
-                dropArea.addEventListener('dragleave', () => {
-                    dropArea.classList.remove('drag-over');
-                });
-
-                dropArea.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    dropArea.classList.remove('drag-over');
-                    this.handleFiles(e.dataTransfer.files);
-                });
-            }
-
-            async handleFiles(files) {
-                for (const file of Array.from(files)) {
-                    if (file.size > 10 * 1024 * 1024) { // 10MB制限
-                        alert(`ファイル "${file.name}" は10MBを超えているため添付できません。`);
-                        continue;
-                    }
-
-                    try {
-                        const fileData = await this.readFileAsBase64(file);
-                        const fileInfo = {
-                            id: Date.now() + Math.random(),
-                            name: file.name,
-                            size: file.size,
-                            type: file.type,
-                            data: fileData
+        // Service Worker Registration
+        function setupServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('push', function(event) {
+                        const options = {
+                            body: event.data ? event.data.text() : 'タスクの期日が近づいています',
+                            icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+                            badge: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+                            vibrate: [100, 50, 100],
+                            data: {
+                                dateOfArrival: Date.now(),
+                                primaryKey: 1
+                            }
                         };
-                        this.attachedFiles.push(fileInfo);
-                        this.renderFileList();
-                    } catch (error) {
-                        console.error('ファイル読み込みエラー:', error);
-                        alert(`ファイル "${file.name}" の読み込みに失敗しました。`);
-                    }
-                }
+                        event.waitUntil(
+                            self.registration.showNotification('タスク管理アプリ', options)
+                        );
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl);
             }
+        }
 
-            readFileAsBase64(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
+        // Google API Initialization
+        async function initializeGoogleAPI() {
+            try {
+                if (typeof gapi !== 'undefined') {
+                    await new Promise((resolve) => gapi.load('client:auth2', resolve));
+                    await gapi.client.init({
+                        apiKey: GOOGLE_API_KEY,
+                        clientId: GOOGLE_CLIENT_ID,
+                        discoveryDocs: [DISCOVERY_DOC],
+                        scope: SCOPES
+                    });
+                    googleAuth = gapi.auth2.getAuthInstance();
+                }
+            } catch (error) {
+                console.log('Google API初期化エラー（デモモード）:', error);
+            }
+        }
+
+        // Event Listeners Setup
+        function setupEventListeners() {
+            // Task Modal
+            document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal());
+            document.getElementById('mobile-add').addEventListener('click', () => openTaskModal());
+            document.getElementById('close-modal').addEventListener('click', closeTaskModal);
+            document.getElementById('cancel-btn').addEventListener('click', closeTaskModal);
+            taskForm.addEventListener('submit', handleTaskSubmit);
+
+            // Settings Modal
+            document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+            document.getElementById('mobile-settings').addEventListener('click', openSettingsModal);
+            document.getElementById('close-settings').addEventListener('click', closeSettingsModal);
+
+            // File handling
+            document.getElementById('select-files').addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            setupFileDragDrop();
+
+            // Import/Export
+            document.getElementById('export-btn').addEventListener('click', exportTasks);
+            document.getElementById('import-file').addEventListener('change', importTasks);
+
+            // Search and Filter
+            document.getElementById('search-input').addEventListener('input', filterTasks);
+            document.getElementById('filter-select').addEventListener('change', filterTasks);
+
+            // Google Calendar
+            document.getElementById('calendar-sync-btn').addEventListener('click', toggleGoogleCalendar);
+            document.getElementById('mobile-sync').addEventListener('click', toggleGoogleCalendar);
+            document.getElementById('mobile-calendar').addEventListener('click', toggleCalendarView);
+
+            // Settings
+            document.getElementById('clear-data').addEventListener('click', clearAllData);
+            document.getElementById('notifications-enabled').addEventListener('change', updateNotificationSettings);
+        }
+
+        // Task Management Functions
+        function openTaskModal(taskId = null) {
+            currentTaskId = taskId;
+            const modal = document.getElementById('task-modal');
+            const title = document.getElementById('modal-title');
+            
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    title.textContent = 'タスクを編集';
+                    populateTaskForm(task);
+                }
+            } else {
+                title.textContent = '新しいタスク';
+                taskForm.reset();
+                document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+                clearFileList();
+            }
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeTaskModal() {
+            taskModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            currentTaskId = null;
+            clearFileList();
+        }
+
+        function populateTaskForm(task) {
+            document.getElementById('task-name').value = task.name || '';
+            document.getElementById('entry-date').value = task.entryDate || '';
+            document.getElementById('order-date').value = task.orderDate || '';
+            document.getElementById('check-date').value = task.checkDate || '';
+            document.getElementById('completion-date').value = task.completionDate || '';
+            document.getElementById('notes').value = task.notes || '';
+            
+            // Load files
+            clearFileList();
+            if (task.files) {
+                task.files.forEach(file => {
+                    addFileToList(file);
                 });
             }
+        }
 
-            renderFileList() {
-                const fileList = document.getElementById('fileList');
-                if (this.attachedFiles.length === 0) {
-                    fileList.innerHTML = '';
-                    return;
+        async function handleTaskSubmit(e) {
+            e.preventDefault();
+            
+            const taskData = {
+                id: currentTaskId || generateId(),
+                name: document.getElementById('task-name').value,
+                entryDate: document.getElementById('entry-date').value,
+                orderDate: document.getElementById('order-date').value,
+                checkDate: document.getElementById('check-date').value,
+                completionDate: document.getElementById('completion-date').value,
+                notes: document.getElementById('notes').value,
+                completed: false,
+                files: getCurrentFiles(),
+                createdAt: currentTaskId ? tasks.find(t => t.id === currentTaskId)?.createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            if (currentTaskId) {
+                const index = tasks.findIndex(t => t.id === currentTaskId);
+                if (index !== -1) {
+                    taskData.completed = tasks[index].completed;
+                    tasks[index] = taskData;
                 }
-
-                fileList.innerHTML = `
-                    <h4 class="font-medium text-gray-700 mb-2">添付ファイル (${this.attachedFiles.length}件)</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        ${this.attachedFiles.map(file => `
-                            <div class="flex items-center justify-between bg-gray-50 p-3 rounded border">
-                                <div class="flex items-center">
-                                    <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
-                                    <div>
-                                        <div class="font-medium text-sm">${file.name}</div>
-                                        <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
-                                    </div>
-                                </div>
-                                <div class="flex gap-1">
-                                    ${this.canPreview(file.type) ? `
-                                        <button type="button" onclick="taskManager.previewFile('${file.id}')" class="text-blue-500 hover:text-blue-700 p-1">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    ` : ''}
-                                    <button type="button" onclick="taskManager.removeFile('${file.id}')" class="text-red-500 hover:text-red-700 p-1">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
+            } else {
+                tasks.push(taskData);
             }
 
-            getFileIcon(mimeType) {
-                if (mimeType.startsWith('image/')) return 'fa-image';
-                if (mimeType.includes('pdf')) return 'fa-file-pdf';
-                if (mimeType.includes('word')) return 'fa-file-word';
-                if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-file-excel';
-                if (mimeType.includes('powerpoint')) return 'fa-file-powerpoint';
-                return 'fa-file';
+            saveTasks();
+            renderTasks();
+            closeTaskModal();
+            
+            // Sync with Google Calendar
+            if (isGoogleCalendarConnected) {
+                await syncTaskToCalendar(taskData);
             }
+            
+            // Schedule notifications
+            scheduleTaskNotifications(taskData);
+            
+            showNotification('タスクが保存されました');
+        }
 
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-
-            canPreview(mimeType) {
-                return mimeType.startsWith('image/') || mimeType.includes('pdf');
-            }
-
-            previewFile(fileId) {
-                const file = this.attachedFiles.find(f => f.id == fileId);
-                if (!file) return;
-
-                const modal = document.getElementById('filePreviewModal');
-                const fileName = document.getElementById('previewFileName');
-                const content = document.getElementById('previewContent');
-
-                fileName.textContent = file.name;
-
-                if (file.type.startsWith('image/')) {
-                    content.innerHTML = `<img src="${file.data}" alt="${file.name}" class="max-w-full h-auto">`;
-                } else if (file.type.includes('pdf')) {
-                    content.innerHTML = `<iframe src="${file.data}" width="100%" height="600px" style="border: none;"></iframe>`;
-                }
-
-                modal.classList.remove('hidden');
-            }
-
-            closeFilePreview() {
-                document.getElementById('filePreviewModal').classList.add('hidden');
-            }
-
-            removeFile(fileId) {
-                this.attachedFiles = this.attachedFiles.filter(f => f.id != fileId);
-                this.renderFileList();
-            }
-
-            async requestNotificationPermission() {
-                if ('Notification' in window) {
-                    const permission = await Notification.requestPermission();
-                    this.notificationPermission = permission === 'granted';
-                    
-                    if (this.notificationPermission) {
-                        document.getElementById('notificationAlert').classList.add('hidden');
-                    } else {
-                        document.getElementById('notificationAlert').classList.remove('hidden');
-                    }
-                }
-            }
-
-            showTaskForm(task = null) {
-                document.getElementById('taskForm').classList.remove('hidden');
-                
-                if (task) {
-                    this.currentEditId = task.id;
-                    document.getElementById('formTitle').textContent = 'タスクを編集';
-                    this.fillForm(task);
-                } else {
-                    this.currentEditId = null;
-                    document.getElementById('formTitle').textContent = '新しいタスクを追加';
-                    this.clearForm();
-                }
-                
-                document.getElementById('taskForm').scrollIntoView({ behavior: 'smooth' });
-            }
-
-            fillForm(task) {
-                document.getElementById('taskName').value = task.name || '';
-                document.getElementById('entryDate').value = task.entryDate || '';
-                document.getElementById('orderDate').value = task.orderDate || '';
-                document.getElementById('checkDate').value = task.checkDate || '';
-                document.getElementById('completeDate').value = task.completeDate || '';
-                document.getElementById('remarks').value = task.remarks || '';
-                this.attachedFiles = task.files || [];
-                this.renderFileList();
-            }
-
-            clearForm() {
-                document.getElementById('taskFormElement').reset();
-                document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
-                this.attachedFiles = [];
-                this.renderFileList();
-            }
-
-            hideTaskForm() {
-                document.getElementById('taskForm').classList.add('hidden');
-                this.clearForm();
-                this.currentEditId = null;
-            }
-
-            handleTaskSubmit(e) {
-                e.preventDefault();
-                
-                const taskData = {
-                    id: this.currentEditId || Date.now(),
-                    name: document.getElementById('taskName').value,
-                    entryDate: document.getElementById('entryDate').value,
-                    orderDate: document.getElementById('orderDate').value,
-                    checkDate: document.getElementById('checkDate').value,
-                    completeDate: document.getElementById('completeDate').value,
-                    remarks: document.getElementById('remarks').value,
+        function duplicateTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                const newTask = {
+                    ...task,
+                    id: generateId(),
+                    name: task.name + ' (コピー)',
                     completed: false,
-                    files: [...this.attachedFiles],
-                    createdAt: this.currentEditId ? this.tasks.find(t => t.id === this.currentEditId)?.createdAt : new Date().toISOString()
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
                 };
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks();
+                showNotification('タスクが複製されました');
+            }
+        }
 
-                if (this.currentEditId) {
-                    const index = this.tasks.findIndex(t => t.id === this.currentEditId);
-                    if (index !== -1) {
-                        taskData.completed = this.tasks[index].completed;
-                        this.tasks[index] = taskData;
-                    }
-                } else {
-                    this.tasks.push(taskData);
-                }
+        function deleteTask(taskId) {
+            if (confirm('このタスクを削除しますか？')) {
+                tasks = tasks.filter(t => t.id !== taskId);
+                saveTasks();
+                renderTasks();
+                showNotification('タスクが削除されました');
+            }
+        }
 
-                this.saveTasks();
-                this.renderTasks();
-                this.updateStats();
-                this.hideTaskForm();
+        function toggleTaskComplete(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                task.updatedAt = new Date().toISOString();
+                saveTasks();
+                renderTasks();
                 
-                this.showNotification('タスクが保存されました', 'success');
-            }
-
-            toggleTask(id) {
-                const task = this.tasks.find(t => t.id === id);
-                if (task) {
-                    task.completed = !task.completed;
-                    this.saveTasks();
-                    this.renderTasks();
-                    this.updateStats();
-                    
-                    const message = task.completed ? 'タスクが完了しました！' : 'タスクが未完了に戻されました';
-                    this.showNotification(message, task.completed ? 'success' : 'info');
-                }
-            }
-
-            duplicateTask(id) {
-                const task = this.tasks.find(t => t.id === id);
-                if (task) {
-                    const duplicatedTask = {
-                        ...task,
-                        id: Date.now(),
-                        name: task.name + ' (コピー)',
-                        completed: false,
-                        createdAt: new Date().toISOString(),
-                        files: [...(task.files || [])]
-                    };
-                    this.tasks.push(duplicatedTask);
-                    this.saveTasks();
-                    this.renderTasks();
-                    this.updateStats();
-                    this.showNotification('タスクが複製されました', 'success');
-                }
-            }
-
-            deleteTask(id) {
-                if (confirm('このタスクを削除してもよろしいですか？')) {
-                    this.tasks = this.tasks.filter(t => t.id !== id);
-                    this.saveTasks();
-                    this.renderTasks();
-                    this.updateStats();
-                    this.showNotification('タスクが削除されました', 'info');
-                }
-            }
-
-            clearCompletedTasks() {
-                const completedCount = this.tasks.filter(t => t.completed).length;
-                if (completedCount === 0) {
-                    this.showNotification('削除する完了済みタスクがありません', 'info');
-                    return;
-                }
-                
-                if (confirm(`${completedCount}件の完了済みタスクを削除してもよろしいですか？`)) {
-                    this.tasks = this.tasks.filter(t => !t.completed);
-                    this.saveTasks();
-                    this.renderTasks();
-                    this.updateStats();
-                    this.showNotification(`${completedCount}件の完了済みタスクを削除しました`, 'success');
-                }
-            }
-
-            renderTasks() {
-                const filter = document.getElementById('filterTasks').value;
-                const search = document.getElementById('searchTasks').value.toLowerCase();
-                
-                let filteredTasks = this.tasks.filter(task => {
-                    const matchesSearch = task.name.toLowerCase().includes(search) || 
-                                        (task.remarks && task.remarks.toLowerCase().includes(search));
-                    
-                    switch (filter) {
-                        case 'pending':
-                            return !task.completed && matchesSearch;
-                        case 'completed':
-                            return task.completed && matchesSearch;
-                        case 'overdue':
-                            return !task.completed && this.isOverdue(task) && matchesSearch;
-                        default:
-                            return matchesSearch;
-                    }
-                });
-
-                // 並び順: 未完了 > 完了済み、作成日時降順
-                filteredTasks.sort((a, b) => {
-                    if (a.completed !== b.completed) {
-                        return a.completed - b.completed;
-                    }
-                    return new Date(b.createdAt) - new Date(a.createdAt);
-                });
-
-                const taskList = document.getElementById('taskList');
-                
-                if (filteredTasks.length === 0) {
-                    taskList.innerHTML = `
-                        <div class="text-center py-12">
-                            <i class="fas fa-inbox text-6xl text-gray-300 mb-4"></i>
-                            <p class="text-xl text-gray-500">タスクがありません</p>
-                            <p class="text-gray-400">新しいタスクを追加してください</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                taskList.innerHTML = filteredTasks.map(task => this.renderTaskCard(task)).join('');
-            }
-
-            renderTaskCard(task) {
-                const isOverdue = this.isOverdue(task);
-                const hasFiles = task.files && task.files.length > 0;
-                
-                return `
-                    <div class="task-card bg-white p-6 rounded-lg shadow-md border-l-4 ${task.completed ? 'completed border-green-400' : isOverdue ? 'border-red-400' : 'border-blue-400'}">
-                        <div class="flex items-start justify-between mb-4">
-                            <div class="flex items-start">
-                                <label class="flex items-center mr-4">
-                                    <input type="checkbox" ${task.completed ? 'checked' : ''} 
-                                           onchange="taskManager.toggleTask(${task.id})"
-                                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                                </label>
-                                <div class="flex-1">
-                                    <h3 class="text-xl font-bold ${task.completed ? 'line-through text-gray-500' : 'text-gray-800'} mb-2">
-                                        ${task.name}
-                                        ${isOverdue && !task.completed ? '<i class="fas fa-exclamation-triangle text-red-500 ml-2"></i>' : ''}
-                                    </h3>
-                                    ${hasFiles ? `
-                                        <div class="mb-2">
-                                            <i class="fas fa-paperclip text-blue-500 mr-1"></i>
-                                            <span class="text-sm text-blue-600">${task.files.length}件のファイル</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="taskManager.duplicateTask(${task.id})" 
-                                        class="text-blue-500 hover:text-blue-700 p-2" title="複製">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                                <button onclick="taskManager.showTaskForm(${JSON.stringify(task).replace(/"/g, '&quot;')})" 
-                                        class="text-green-500 hover:text-green-700 p-2" title="編集">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button onclick="taskManager.deleteTask(${task.id})" 
-                                        class="text-red-500 hover:text-red-700 p-2" title="削除">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                            ${task.entryDate ? `
-                                <div>
-                                    <span class="font-medium text-gray-600">記入日:</span>
-                                    <div class="text-gray-800">${this.formatDate(task.entryDate)}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${task.orderDate ? `
-                                <div>
-                                    <span class="font-medium text-gray-600">発注日:</span>
-                                    <div class="text-gray-800">${this.formatDateTime(task.orderDate)}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${task.checkDate ? `
-                                <div>
-                                    <span class="font-medium text-gray-600">中間確認日:</span>
-                                    <div class="text-gray-800">${this.formatDateTime(task.checkDate)}</div>
-                                </div>
-                            ` : ''}
-                            
-                            ${task.completeDate ? `
-                                <div>
-                                    <span class="font-medium text-gray-600">完了日:</span>
-                                    <div class="text-gray-800">${this.formatDateTime(task.completeDate)}</div>
-                                </div>
-                            ` : ''}
-                        </div>
-                        
-                        ${task.remarks ? `
-                            <div class="mt-4 p-3 bg-gray-50 rounded">
-                                <span class="font-medium text-gray-600">備考:</span>
-                                <div class="text-gray-800 mt-1">${task.remarks}</div>
-                            </div>
-                        ` : ''}
-                        
-                        ${hasFiles ? `
-                            <div class="mt-4">
-                                <span class="font-medium text-gray-600 mb-2 block">添付ファイル:</span>
-                                <div class="flex flex-wrap gap-2">
-                                    ${task.files.map(file => `
-                                        <div class="flex items-center bg-blue-50 px-3 py-1 rounded text-sm">
-                                            <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
-                                            <span class="mr-2">${file.name}</span>
-                                            ${this.canPreview(file.type) ? `
-                                                <button onclick="taskManager.previewTaskFile(${task.id}, '${file.id}')" 
-                                                        class="text-blue-500 hover:text-blue-700" title="プレビュー">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            ` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }
-
-            previewTaskFile(taskId, fileId) {
-                const task = this.tasks.find(t => t.id === taskId);
-                if (!task || !task.files) return;
-                
-                const file = task.files.find(f => f.id == fileId);
-                if (!file) return;
-
-                const modal = document.getElementById('filePreviewModal');
-                const fileName = document.getElementById('previewFileName');
-                const content = document.getElementById('previewContent');
-
-                fileName.textContent = file.name;
-
-                if (file.type.startsWith('image/')) {
-                    content.innerHTML = `<img src="${file.data}" alt="${file.name}" class="max-w-full h-auto">`;
-                } else if (file.type.includes('pdf')) {
-                    content.innerHTML = `<iframe src="${file.data}" width="100%" height="600px" style="border: none;"></iframe>`;
-                }
-
-                modal.classList.remove('hidden');
-            }
-
-            isOverdue(task) {
-                if (task.completed) return false;
-                
-                const now = new Date();
-                const dates = [task.orderDate, task.checkDate, task.completeDate].filter(Boolean);
-                
-                return dates.some(date => new Date(date) < now);
-            }
-
-            formatDate(dateString) {
-                if (!dateString) return '';
-                const date = new Date(dateString);
-                return date.toLocaleDateString('ja-JP');
-            }
-
-            formatDateTime(dateTimeString) {
-                if (!dateTimeString) return '';
-                const date = new Date(dateTimeString);
-                return date.toLocaleDateString('ja-JP') + ' ' + date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-            }
-
-            updateStats() {
-                const total = this.tasks.length;
-                const completed = this.tasks.filter(t => t.completed).length;
-                const pending = total - completed;
-                const overdue = this.tasks.filter(t => this.isOverdue(t)).length;
-
-                document.getElementById('totalTasks').textContent = total;
-                document.getElementById('completedTasks').textContent = completed;
-                document.getElementById('pendingTasks').textContent = pending;
-                document.getElementById('overdueTasks').textContent = overdue;
-            }
-
-            setupNotificationChecker() {
-                setInterval(() => {
-                    if (!this.notificationPermission) return;
-                    
-                    const now = new Date();
-                    const oneHour = 60 * 60 * 1000;
-                    const thirtyMinutes = 30 * 60 * 1000;
-
-                    this.tasks.forEach(task => {
-                        if (task.completed) return;
-
-                        const dates = [
-                            { date: task.orderDate, label: '発注日' },
-                            { date: task.checkDate, label: '中間確認日' },
-                            { date: task.completeDate, label: '完了日' }
-                        ].filter(item => item.date);
-
-                        dates.forEach(({ date, label }) => {
-                            const taskDate = new Date(date);
-                            const timeDiff = taskDate - now;
-
-                            if (timeDiff > 0 && timeDiff <= oneHour && timeDiff > thirtyMinutes) {
-                                this.sendNotification(`【1時間前】${task.name} - ${label}`, 'リマインダー: タスクの期日が近づいています');
-                            } else if (timeDiff > 0 && timeDiff <= thirtyMinutes) {
-                                this.sendNotification(`【30分前】${task.name} - ${label}`, 'リマインダー: タスクの期日まで30分です');
-                            } else if (timeDiff <= 0 && timeDiff > -oneHour) {
-                                this.sendNotification(`【期日到来】${task.name} - ${label}`, '忘れていませんか？タスクの期日です');
-                            }
-                        });
-                    });
-                }, 60000); // 1分ごとにチェック
-            }
-
-            sendNotification(title, body) {
-                if (this.notificationPermission && 'Notification' in window) {
-                    new Notification(title, {
-                        body: body,
-                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%233B82F6"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>',
-                        requireInteraction: true
-                    });
-                }
-            }
-
-            showNotification(message, type = 'info') {
-                const notification = document.createElement('div');
-                const colors = {
-                    success: 'bg-green-500',
-                    error: 'bg-red-500',
-                    info: 'bg-blue-500'
-                };
-                
-                notification.className = `fixed top-4 right-4 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform translate-x-full transition-transform duration-300`;
-                notification.textContent = message;
-                
-                document.body.appendChild(notification);
-                
-                setTimeout(() => {
-                    notification.style.transform = 'translateX(0)';
-                }, 100);
-                
-                setTimeout(() => {
-                    notification.style.transform = 'translateX(full)';
-                    setTimeout(() => {
-                        document.body.removeChild(notification);
-                    }, 300);
-                }, 3000);
-            }
-
-            exportData() {
-                const data = {
-                    tasks: this.tasks,
-                    exportDate: new Date().toISOString()
-                };
-                
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `tasks_backup_${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.showNotification('データをエクスポートしました', 'success');
-            }
-
-            importData(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        if (data.tasks && Array.isArray(data.tasks)) {
-                            if (confirm('現在のデータを置き換えてもよろしいですか？')) {
-                                this.tasks = data.tasks;
-                                this.saveTasks();
-                                this.renderTasks();
-                                this.updateStats();
-                                this.showNotification('データをインポートしました', 'success');
-                            }
-                        } else {
-                            throw new Error('Invalid file format');
-                        }
-                    } catch (error) {
-                        console.error('Import error:', error);
-                        this.showNotification('ファイル形式が正しくありません', 'error');
-                    }
-                };
-                reader.readAsText(file);
-                event.target.value = '';
-            }
-
-            loadTasks() {
-                try {
-                    const saved = localStorage.getItem('tasks');
-                    return saved ? JSON.parse(saved) : [];
-                } catch (error) {
-                    console.error('データ読み込みエラー:', error);
-                    return [];
-                }
-            }
-
-            saveTasks() {
-                try {
-                    localStorage.setItem('tasks', JSON.stringify(this.tasks));
-                } catch (error) {
-                    console.error('データ保存エラー:', error);
-                    this.showNotification('データの保存に失敗しました。ストレージ容量をご確認ください。', 'error');
+                if (isGoogleCalendarConnected) {
+                    syncTaskToCalendar(task);
                 }
             }
         }
 
-        // アプリケーション初期化
-        const taskManager = new TaskManager();
-        
-        // グローバルスコープでアクセス可能にする
-        window.taskManager = taskManager;
+        // File Management
+        function setupFileDragDrop() {
+            fileDropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileDropZone.classList.add('dragover');
+            });
+
+            fileDropZone.addEventListener('dragleave', () => {
+                fileDropZone.classList.remove('dragover');
+            });
+
+            fileDropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileDropZone.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                processFiles(files);
+            });
+
+            fileDropZone.addEventListener('click', () => {
+                if (e.target === fileDropZone) {
+                    fileInput.click();
+                }
+            });
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            processFiles(files);
+        }
+
+        async function processFiles(files) {
+            for (const file of files) {
+                try {
+                    const fileData = await readFileAsBase64(file);
+                    const fileObj = {
+                        id: generateId(),
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        data: fileData,
+                        uploadedAt: new Date().toISOString()
+                    };
+                    addFileToList(fileObj);
+                } catch (error) {
+                    console.error('ファイル処理エラー:', error);
+                    showNotification('ファイルの処理に失敗しました: ' + file.name, 'error');
+                }
+            }
+        }
+
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function addFileToList(file) {
+            const fileDiv = document.createElement('div');
+            fileDiv.className = 'flex items-center justify-between bg-gray-50 p-3 rounded-lg';
+            fileDiv.dataset.fileId = file.id;
+            
+            const fileInfo = document.createElement('div');
+            fileInfo.className = 'flex items-center';
+            
+            const icon = getFileIcon(file.type);
+            fileInfo.innerHTML = `
+                <i class="${icon} mr-2"></i>
+                <div>
+                    <div class="font-medium">${file.name}</div>
+                    <div class="text-sm text-gray-500">${formatFileSize(file.size)}</div>
+                </div>
+            `;
+            
+            const actions = document.createElement('div');
+            actions.className = 'flex gap-2';
+            
+            if (file.type.startsWith('image/')) {
+                const previewBtn = document.createElement('button');
+                previewBtn.type = 'button';
+                previewBtn.className = 'text-blue-500 hover:text-blue-700';
+                previewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                previewBtn.onclick = () => previewFile(file);
+                actions.appendChild(previewBtn);
+            }
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'text-red-500 hover:text-red-700';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.onclick = () => removeFileFromList(file.id);
+            actions.appendChild(deleteBtn);
+            
+            fileDiv.appendChild(fileInfo);
+            fileDiv.appendChild(actions);
+            fileList.appendChild(fileDiv);
+        }
+
+        function removeFileFromList(fileId) {
+            const fileDiv = document.querySelector(`[data-file-id="${fileId}"]`);
+            if (fileDiv) {
+                fileDiv.remove();
+            }
+        }
+
+        function clearFileList() {
+            fileList.innerHTML = '';
+        }
+
+        function getCurrentFiles() {
+            const files = [];
+            const fileDivs = fileList.querySelectorAll('[data-file-id]');
+            fileDivs.forEach(div => {
+                const fileId = div.dataset.fileId;
+                // In a real implementation, you'd retrieve the full file data
+                // For now, we'll store a reference
+                files.push({ id: fileId });
+            });
+            return files;
+        }
+
+        function getFileIcon(mimeType) {
+            if (mimeType.startsWith('image/')) return 'fas fa-image text-green-500';
+            if (mimeType.includes('pdf')) return 'fas fa-file-pdf text-red-500';
+            if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fas fa-file-excel text-green-600';
+            if (mimeType.includes('word') || mimeType.includes('document')) return 'fas fa-file-word text-blue-600';
+            return 'fas fa-file text-gray-500';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function previewFile(file) {
+            if (file.type.startsWith('image/')) {
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4';
+                modal.onclick = () => modal.remove();
+                
+                const img = document.createElement('img');
+                img.src = file.data;
+                img.className = 'max-w-full max-h-full object-contain';
+                
+                modal.appendChild(img);
+                document.body.appendChild(modal);
+            }
+        }
+
+        // Google Calendar Integration
+        async function toggleGoogleCalendar() {
+            if (!googleAuth) {
+                showNotification('Google APIが利用できません（デモモード）', 'error');
+                return;
+            }
+
+            try {
+                if (isGoogleCalendarConnected) {
+                    await googleAuth.signOut();
+                    isGoogleCalendarConnected = false;
+                    updateCalendarButton();
+                    showNotification('Googleカレンダーから切断しました');
+                } else {
+                    const authResult = await googleAuth.signIn();
+                    if (authResult.isSignedIn()) {
+                        isGoogleCalendarConnected = true;
+                        updateCalendarButton();
+                        showNotification('Googleカレンダーに接続しました');
+                        await syncAllTasksToCalendar();
+                    }
+                }
+            } catch (error) {
+                console.error('Google Calendar認証エラー:', error);
+                showNotification('Google Calendar接続エラー', 'error');
+            }
+        }
+
+        function updateCalendarButton() {
+            const btn = document.getElementById('calendar-sync-btn');
+            if (isGoogleCalendarConnected) {
+                btn.innerHTML = '<i class="fab fa-google mr-2"></i>カレンダー接続済み';
+                btn.className = 'bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors';
+            } else {
+                btn.innerHTML = '<i class="fab fa-google mr-2"></i>カレンダー連携';
+                btn.className = 'bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded-lg transition-colors';
+            }
+        }
+
+        async function syncTaskToCalendar(task) {
+            if (!isGoogleCalendarConnected || !gapi) return;
+
+            try {
+                const events = [];
+                
+                if (task.orderDate) {
+                    events.push({
+                        summary: `【発注】${task.name}`,
+                        start: { dateTime: new Date(task.orderDate).toISOString() },
+                        end: { dateTime: new Date(new Date(task.orderDate).getTime() + 60*60*1000).toISOString() },
+                        description: task.notes,
+                        colorId: '1' // Blue
+                    });
+                }
+                
+                if (task.checkDate) {
+                    events.push({
+                        summary: `【中間確認】${task.name}`,
+                        start: { dateTime: new Date(task.checkDate).toISOString() },
+                        end: { dateTime: new Date(new Date(task.checkDate).getTime() + 60*60*1000).toISOString() },
+                        description: task.notes,
+                        colorId: '5' // Yellow
+                    });
+                }
+                
+                if (task.completionDate) {
+                    events.push({
+                        summary: `【完了期限】${task.name}`,
+                        start: { dateTime: new Date(task.completionDate).toISOString() },
+                        end: { dateTime: new Date(new Date(task.completionDate).getTime() + 60*60*1000).toISOString() },
+                        description: task.notes,
+                        colorId: '2' // Green
+                    });
+                }
+
+                for (const event of events) {
+                    await gapi.client.calendar.events.insert({
+                        calendarId: 'primary',
+                        resource: event
+                    });
+                }
+            } catch (error) {
+                console.error('カレンダー同期エラー:', error);
+            }
+        }
+
+        async function syncAllTasksToCalendar() {
+            if (!isGoogleCalendarConnected) return;
+            
+            for (const task of tasks) {
+                if (!task.completed) {
+                    await syncTaskToCalendar(task);
+                }
+            }
+            showNotification('すべてのタスクをカレンダーに同期しました');
+        }
+
+        function toggleCalendarView() {
+            const calendarSection = document.getElementById('calendar-section');
+            calendarSection.classList.toggle('hidden');
+            
+            if (!calendarSection.classList.contains('hidden')) {
+                loadCalendarView();
+            }
+        }
+
+        function loadCalendarView() {
+            const container = document.getElementById('calendar-container');
+            
+            // Simple calendar implementation
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            
+            container.innerHTML = `
+                <div class="text-center mb-4">
+                    <h3 class="text-lg font-bold">${year}年${month + 1}月</h3>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center">
+                    <div class="font-bold p-2">日</div>
+                    <div class="font-bold p-2">月</div>
+                    <div class="font-bold p-2">火</div>
+                    <div class="font-bold p-2">水</div>
+                    <div class="font-bold p-2">木</div>
+                    <div class="font-bold p-2">金</div>
+                    <div class="font-bold p-2">土</div>
+                </div>
+                <div id="calendar-days" class="grid grid-cols-7 gap-1"></div>
+            `;
+            
+            renderCalendarDays(year, month);
+        }
+
+        function renderCalendarDays(year, month) {
+            const container = document.getElementById('calendar-days');
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            for (let i = 0; i < 42; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+                
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'p-2 border border-gray-200 min-h-20 text-sm';
+                
+                if (date.getMonth() !== month) {
+                    dayDiv.className += ' text-gray-400 bg-gray-50';
+                }
+                
+                dayDiv.innerHTML = `<div class="font-medium">${date.getDate()}</div>`;
+                
+                // Add tasks for this day
+                const dayTasks = getTasksForDate(date);
+                dayTasks.forEach(task => {
+                    const taskDiv = document.createElement('div');
+                    taskDiv.className = 'text-xs p-1 rounded bg-blue-100 text-blue-800 mb-1 truncate';
+                    taskDiv.textContent = task.name;
+                    dayDiv.appendChild(taskDiv);
+                });
+                
+                container.appendChild(dayDiv);
+            }
+        }
+
+        function getTasksForDate(date) {
+            const dateStr = date.toISOString().split('T')[0];
+            return tasks.filter(task => {
+                const orderDate = task.orderDate ? task.orderDate.split('T')[0] : null;
+                const checkDate = task.checkDate ? task.checkDate.split('T')[0] : null;
+                const completionDate = task.completionDate ? task.completionDate.split('T')[0] : null;
+                
+                return orderDate === dateStr || checkDate === dateStr || completionDate === dateStr;
+            });
+        }
+
+        // Notification Functions
+        function requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showNotification('通知が有効になりました');
+                    }
+                });
+            }
+        }
+
+        function scheduleTaskNotifications(task) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const dates = [task.orderDate, task.checkDate, task.completionDate];
+                const labels = ['発注日', '中間確認日', '完了日'];
+                
+                dates.forEach((date, index) => {
+                    if (date && !task.completed) {
+                        const targetDate = new Date(date);
+                        const now = new Date();
+                        const timeDiff = targetDate.getTime() - now.getTime();
+                        
+                        // Schedule notification 1 hour before
+                        const notificationTime = timeDiff - (60 * 60 * 1000);
+                        
+                        if (notificationTime > 0) {
+                            setTimeout(() => {
+                                if (!task.completed) {
+                                    new Notification('タスクリマインダー', {
+                                        body: `${labels[index]}が1時間後です: ${task.name}`,
+                                        icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+                                    });
+                                }
+                            }, notificationTime);
+                        }
+                    }
+                });
+            }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${type === 'error' ? 'bg-red-500' : 'bg-green-500'}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Data Management
+        function loadTasks() {
+            try {
+                const saved = localStorage.getItem('tasks');
+                if (saved) {
+                    tasks = JSON.parse(saved);
+                }
+            } catch (error) {
+                console.error('タスク読み込みエラー:', error);
+                tasks = [];
+            }
+            renderTasks();
+        }
+
+        function saveTasks() {
+            try {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            } catch (error) {
+                console.error('タスク保存エラー:', error);
+                showNotification('保存に失敗しました', 'error');
+            }
+        }
+
+        function exportTasks() {
+            try {
+                const dataStr = JSON.stringify(tasks, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `tasks_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                showNotification('タスクをエクスポートしました');
+            } catch (error) {
+                console.error('エクスポートエラー:', error);
+                showNotification('エクスポートに失敗しました', 'error');
+            }
+        }
+
+        function importTasks(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedTasks = JSON.parse(e.target.result);
+                    
+                    if (Array.isArray(importedTasks)) {
+                        if (confirm('既存のタスクを置き換えますか？')) {
+                            tasks = importedTasks;
+                        } else {
+                            tasks = [...tasks, ...importedTasks];
+                        }
+                        saveTasks();
+                        renderTasks();
+                        showNotification('タスクをインポートしました');
+                    } else {
+                        throw new Error('Invalid format');
+                    }
+                } catch (error) {
+                    console.error('インポートエラー:', error);
+                    showNotification('ファイル形式が正しくありません', 'error');
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        }
+
+        // UI Functions
+        function renderTasks() {
+            const filteredTasks = getFilteredTasks();
+            
+            taskGrid.innerHTML = '';
+            
+            if (filteredTasks.length === 0) {
+                taskGrid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <i class="fas fa-tasks text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-500 text-lg">タスクがありません</p>
+                        <button onclick="openTaskModal()" class="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600">
+                            最初のタスクを作成
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+            
+            filteredTasks.forEach(task => {
+                const taskCard = createTaskCard(task);
+                taskGrid.appendChild(taskCard);
+            });
+        }
+
+        function createTaskCard(task) {
+            const card = document.createElement('div');
+            card.className = `task-card bg-white rounded-lg shadow-md p-6 ${task.completed ? 'opacity-75' : ''}`;
+            
+            const statusIcon = task.completed ? 'fas fa-check-circle text-green-500' : 'far fa-circle text-gray-400';
+            const urgencyClass = getUrgencyClass(task);
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-lg font-semibold ${task.completed ? 'line-through' : ''}">${task.name}</h3>
+                    <div class="flex gap-2">
+                        <button onclick="toggleTaskComplete('${task.id}')" class="text-lg hover:scale-110 transition-transform">
+                            <i class="${statusIcon}"></i>
+                        </button>
+                        <button onclick="openTaskModal('${task.id}')" class="text-blue-500 hover:text-blue-700">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="duplicateTask('${task.id}')" class="text-green-500 hover:text-green-700">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button onclick="deleteTask('${task.id}')" class="text-red-500 hover:text-red-700">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="space-y-2 text-sm">
+                    ${task.entryDate ? `<div><span class="font-medium">記入日:</span> ${formatDate(task.entryDate)}</div>` : ''}
+                    ${task.orderDate ? `<div class="${urgencyClass}"><span class="font-medium">発注日:</span> ${formatDateTime(task.orderDate)}</div>` : ''}
+                    ${task.checkDate ? `<div><span class="font-medium">中間確認日:</span> ${formatDateTime(task.checkDate)}</div>` : ''}
+                    ${task.completionDate ? `<div><span class="font-medium">完了日:</span> ${formatDateTime(task.completionDate)}</div>` : ''}
+                    ${task.notes ? `<div class="mt-3"><span class="font-medium">備考:</span><br><span class="text-gray-600">${task.notes}</span></div>` : ''}
+                </div>
+                
+                ${task.files && task.files.length > 0 ? `
+                    <div class="mt-4">
+                        <div class="text-sm font-medium mb-2">添付ファイル:</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${task.files.map(file => `
+                                <span class="bg-gray-100 px-2 py-1 rounded text-xs">
+                                    <i class="${getFileIcon(file.type)} mr-1"></i>${file.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="mt-4 text-xs text-gray-400">
+                    作成: ${formatDateTime(task.createdAt)}
+                    ${task.updatedAt && task.updatedAt !== task.createdAt ? ` | 更新: ${formatDateTime(task.updatedAt)}` : ''}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function getUrgencyClass(task) {
+            if (!task.orderDate || task.completed) return '';
+            
+            const orderDate = new Date(task.orderDate);
+            const now = new Date();
+            const timeDiff = orderDate.getTime() - now.getTime();
+            const daysDiff = timeDiff / (1000 * 3600 * 24);
+            
+            if (daysDiff < 0) return 'text-red-600 font-semibold'; // Past due
+            if (daysDiff < 1) return 'text-orange-600 font-semibold'; // Due soon
+            if (daysDiff < 3) return 'text-yellow-600'; // Due in a few days
+            
+            return '';
+        }
+
+        function getFilteredTasks() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filter = document.getElementById('filter-select').value;
+            
+            return tasks.filter(task => {
+                const matchesSearch = !searchTerm || 
+                    task.name.toLowerCase().includes(searchTerm) ||
+                    (task.notes && task.notes.toLowerCase().includes(searchTerm));
+                
+                const matchesFilter = filter === 'all' ||
+                    (filter === 'completed' && task.completed) ||
+                    (filter === 'pending' && !task.completed);
+                
+                return matchesSearch && matchesFilter;
+            }).sort((a, b) => {
+                // Sort by completion status first, then by creation date
+                if (a.completed !== b.completed) {
+                    return a.completed ? 1 : -1;
+                }
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+        }
+
+        function filterTasks() {
+            renderTasks();
+        }
+
+        // Settings
+        function openSettingsModal() {
+            settingsModal.classList.remove('hidden');
+            loadSettings();
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.add('hidden');
+        }
+
+        function loadSettings() {
+            const settings = getSettings();
+            document.getElementById('notifications-enabled').checked = settings.notificationsEnabled;
+            document.getElementById('calendar-sync-enabled').checked = settings.calendarSyncEnabled;
+            document.getElementById('notification-timing').value = settings.notificationTiming;
+        }
+
+        function getSettings() {
+            const defaultSettings = {
+                notificationsEnabled: true,
+                calendarSyncEnabled: false,
+                notificationTiming: 60
+            };
+            
+            try {
+                const saved = localStorage.getItem('app-settings');
+                return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+            } catch (error) {
+                return defaultSettings;
+            }
+        }
+
+        function saveSettings(settings) {
+            try {
+                localStorage.setItem('app-settings', JSON.stringify(settings));
+            } catch (error) {
+                console.error('設定保存エラー:', error);
+            }
+        }
+
+        function updateNotificationSettings() {
+            const settings = getSettings();
+            settings.notificationsEnabled = document.getElementById('notifications-enabled').checked;
+            saveSettings(settings);
+            
+            if (settings.notificationsEnabled) {
+                requestNotificationPermission();
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('すべてのデータを削除しますか？この操作は取り消せません。')) {
+                if (confirm('本当に削除しますか？')) {
+                    localStorage.clear();
+                    tasks = [];
+                    renderTasks();
+                    closeSettingsModal();
+                    showNotification('すべてのデータを削除しました');
+                }
+            }
+        }
+
+        // Utility Functions
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('ja-JP');
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleString('ja-JP');
+        }
+
+        // Initialize notifications check
+        setInterval(() => {
+            checkPendingNotifications();
+        }, 60000); // Check every minute
+
+        function checkPendingNotifications() {
+            const settings = getSettings();
+            if (!settings.notificationsEnabled) return;
+            
+            const now = new Date();
+            const notificationWindow = settings.notificationTiming * 60 * 1000; // Convert to milliseconds
+            
+            tasks.forEach(task => {
+                if (task.completed) return;
+                
+                [task.orderDate, task.checkDate, task.completionDate].forEach((date, index) => {
+                    if (!date) return;
+                    
+                    const targetDate = new Date(date);
+                    const timeDiff = targetDate.getTime() - now.getTime();
+                    
+                    if (timeDiff > 0 && timeDiff <= notificationWindow) {
+                        const labels = ['発注日', '中間確認日', '完了日'];
+                        showDesktopNotification(`${labels[index]}が近づいています`, task.name);
+                    }
+                });
+            });
+        }
+
+        function showDesktopNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+                    requireInteraction: true
+                });
+            }
+        }
     </script>
 </body>
 </html>
